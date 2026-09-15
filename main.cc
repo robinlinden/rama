@@ -126,7 +126,7 @@ auto main(int argc, char **argv) -> int {
     }
 
     char const *gguf_path = argv[1];
-    std::ifstream file{gguf_path};
+    std::ifstream file{gguf_path, std::ios::binary};
     if (!file) {
         std::println(stderr, "Failed to open file: {}", gguf_path);
         return 1;
