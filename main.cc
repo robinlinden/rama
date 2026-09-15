@@ -5,6 +5,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <format>
 #include <fstream>
 #include <optional>
