@@ -28,6 +28,18 @@ auto read(std::istream &stream) -> std::optional<T> {
 }
 
 template<>
+auto read<float>(std::istream &stream) -> std::optional<float> {
+    auto value = read<std::uint32_t>(stream);
+    if (!value) {
+        return std::nullopt;
+    }
+
+    float result;
+    std::memcpy(&result, &*value, sizeof(result));
+    return result;
+}
+
+template<>
 auto read<std::string>(std::istream &stream) -> std::optional<std::string> {
     auto length = read<std::uint64_t>(stream);
     if (!length) {
@@ -41,6 +53,66 @@ auto read<std::string>(std::istream &stream) -> std::optional<std::string> {
     }
 
     return value;
+}
+
+enum class GgufType : std::uint8_t {
+    Uint8 = 0,
+    Int8 = 1,
+    Uint16 = 2,
+    Int16 = 3,
+    Uint32 = 4,
+    Int32 = 5,
+    Float32 = 6,
+    Bool = 7,
+    String = 8,
+    Array = 9,
+    Uint64 = 10,
+    Int64 = 11,
+    Float64 = 12,
+};
+
+auto to_string(GgufType type) -> std::string_view {
+    switch (type) {
+    case GgufType::Uint8:
+        return "uint8";
+    case GgufType::Int8:
+        return "int8";
+    case GgufType::Uint16:
+        return "uint16";
+    case GgufType::Int16:
+        return "int16";
+    case GgufType::Uint32:
+        return "uint32";
+    case GgufType::Int32:
+        return "int32";
+    case GgufType::Float32:
+        return "float32";
+    case GgufType::Bool:
+        return "bool";
+    case GgufType::String:
+        return "string";
+    case GgufType::Array:
+        return "array";
+    case GgufType::Uint64:
+        return "uint64";
+    case GgufType::Int64:
+        return "int64";
+    case GgufType::Float64:
+        return "float64";
+    }
+
+    return "<unknown>";
+}
+
+template<>
+auto read<GgufType>(std::istream &stream) -> std::optional<GgufType> {
+    auto value = read<std::int32_t>(stream);
+    if (!value || *value < static_cast<std::int32_t>(GgufType::Uint8) ||
+        *value > static_cast<std::int32_t>(GgufType::Float64)) {
+        return std::nullopt;
+    }
+
+    return static_cast<GgufType>(*value);
 }
 
 } // namespace
@@ -98,4 +170,87 @@ auto main(int argc, char **argv) -> int {
     }
 
     std::println("Metadata count: {}", *metadata_kv_count);
+
+    for (std::uint64_t i = 0; i < *metadata_kv_count; ++i) {
+        auto key = read<std::string>(file);
+        if (!key) {
+            std::println(stderr, "Failed to read metadata key");
+            return 1;
+        }
+
+        auto type = read<GgufType>(file);
+        if (!type) {
+            std::println(stderr, "Failed to read metadata type");
+            return 1;
+        }
+
+        if (*type == GgufType::Uint32) {
+            auto value = read<std::uint32_t>(file);
+            if (!value) {
+                std::println(stderr, "Failed to read metadata value for key '{}'", *key);
+                return 1;
+            }
+
+            std::println("* {}: {}", *key, *value);
+            continue;
+        }
+
+        if (*type == GgufType::Int32) {
+            auto value = read<std::int32_t>(file);
+            if (!value) {
+                std::println(stderr, "Failed to read metadata value for key '{}'", *key);
+                return 1;
+            }
+
+            std::println("* {}: {}", *key, *value);
+            continue;
+        }
+
+        if (*type == GgufType::Float32) {
+            auto value = read<float>(file);
+            if (!value) {
+                std::println(stderr, "Failed to read metadata value for key '{}'", *key);
+                return 1;
+            }
+
+            std::println("* {}: {}", *key, *value);
+            continue;
+        }
+
+        if (*type == GgufType::String) {
+            auto value = read<std::string>(file);
+            if (!value) {
+                std::println(stderr, "Failed to read metadata value for key '{}'", *key);
+                return 1;
+            }
+
+            std::println("* {}: {}", *key, *value);
+            continue;
+        }
+
+        if (*type == GgufType::Array) {
+            auto array_type = read<GgufType>(file);
+            if (!array_type) {
+                std::println(stderr, "Failed to read metadata array type for key '{}'", *key);
+                return 1;
+            }
+
+            auto array_length = read<std::uint64_t>(file);
+            if (!array_length) {
+                std::println(stderr, "Failed to read metadata array length for key '{}'", *key);
+                return 1;
+            }
+
+            std::println(
+                "* {}: array of {} elements of type {}",
+                *key,
+                *array_length,
+                to_string(*array_type));
+
+            // Fallthrough to failure until future Robin deals with this.
+        }
+
+        std::println(stderr, "Unsupported metadata key '{}' w/ type '{}'", *key, to_string(*type));
+        return 1;
+    }
 }
