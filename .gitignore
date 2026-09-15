@@ -1,0 +1,6 @@
+# Build artifacts
+/bazel-*
+
+# clangd
+/.cache/
+/compile_commands.json
