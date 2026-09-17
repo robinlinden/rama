@@ -18,6 +18,7 @@
 
 namespace {
 
+// https://github.com/ggml-org/ggml/blob/456172ec733a135778adcd32d00e576a58232e45/docs/gguf.md
 template<typename T>
 auto read(std::istream &stream) -> std::optional<T> {
     T value;
@@ -221,6 +222,214 @@ auto read_gguf_value(std::istream &stream, GgufType type) -> std::optional<GgufV
     }
 }
 
+enum class GgmlType : std::uint8_t {
+    F32,
+    F16,
+    Q4_0,
+    Q4_1,
+    Q5_0,
+    Q5_1,
+    Q8_0,
+    Q8_1,
+    Q2_K,
+    Q3_K,
+    Q4_K,
+    Q5_K,
+    Q6_K,
+    Q8_K,
+    IQ2_XXS,
+    IQ2_XS,
+    IQ3_XXS,
+    IQ1_S,
+    IQ4_NL,
+    IQ3_S,
+    IQ2_S,
+    IQ4_XS,
+    I8,
+    I16,
+    I32,
+    I64,
+    F64,
+    IQ1_M,
+    BF16,
+    TQ1_0,
+    TQ2_0,
+    MXFP4,
+};
+
+template<>
+auto read<GgmlType>(std::istream &stream) -> std::optional<GgmlType> {
+    auto value = read<std::uint32_t>(stream);
+    if (!value) {
+        return std::nullopt;
+    }
+
+    switch (*value) {
+    case 0:
+        return GgmlType::F32;
+    case 1:
+        return GgmlType::F16;
+    case 2:
+        return GgmlType::Q4_0;
+    case 3:
+        return GgmlType::Q4_1;
+    case 4:
+        std::println(stderr, "GGML type Q4_2 has been dropped from GGUF and is unsupported");
+        return std::nullopt;
+    case 5:
+        std::println(stderr, "GGML type Q4_3 has been dropped from GGUF and is unsupported");
+        return std::nullopt;
+    case 6:
+        return GgmlType::Q5_0;
+    case 7:
+        return GgmlType::Q5_1;
+    case 8:
+        return GgmlType::Q8_0;
+    case 9:
+        return GgmlType::Q8_1;
+    case 10:
+        return GgmlType::Q2_K;
+    case 11:
+        return GgmlType::Q3_K;
+    case 12:
+        return GgmlType::Q4_K;
+    case 13:
+        return GgmlType::Q5_K;
+    case 14:
+        return GgmlType::Q6_K;
+    case 15:
+        return GgmlType::Q8_K;
+    case 16:
+        return GgmlType::IQ2_XXS;
+    case 17:
+        return GgmlType::IQ2_XS;
+    case 18:
+        return GgmlType::IQ3_XXS;
+    case 19:
+        return GgmlType::IQ1_S;
+    case 20:
+        return GgmlType::IQ4_NL;
+    case 21:
+        return GgmlType::IQ3_S;
+    case 22:
+        return GgmlType::IQ2_S;
+    case 23:
+        return GgmlType::IQ4_XS;
+    case 24:
+        return GgmlType::I8;
+    case 25:
+        return GgmlType::I16;
+    case 26:
+        return GgmlType::I32;
+    case 27:
+        return GgmlType::I64;
+    case 28:
+        return GgmlType::F64;
+    case 29:
+        return GgmlType::IQ1_M;
+    case 30:
+        return GgmlType::BF16;
+    case 31:
+        std::println(stderr, "GGML type Q4_0_4_4 has been dropped from GGUF and is unsupported");
+        return std::nullopt;
+    case 32:
+        std::println(stderr, "GGML type Q4_0_4_8 has been dropped from GGUF and is unsupported");
+        return std::nullopt;
+    case 33:
+        std::println(stderr, "GGML type Q4_0_8_8 has been dropped from GGUF and is unsupported");
+        return std::nullopt;
+    case 34:
+        return GgmlType::TQ1_0;
+    case 35:
+        return GgmlType::TQ2_0;
+    case 36:
+        std::println(stderr, "GGML type IQ4_NL_4_4 has been dropped from GGUF and is unsupported");
+        return std::nullopt;
+    case 37:
+        std::println(stderr, "GGML type IQ4_NL_4_8 has been dropped from GGUF and is unsupported");
+        return std::nullopt;
+    case 38:
+        std::println(stderr, "GGML type IQ4_NL_8_8 has been dropped from GGUF and is unsupported");
+        return std::nullopt;
+    case 39:
+        return GgmlType::MXFP4;
+    default:
+        std::println(stderr, "Unsupported GGML type: {}", *value);
+        return std::nullopt;
+    }
+}
+
+auto to_string(GgmlType type) -> std::string_view {
+    switch (type) {
+    case GgmlType::F32:
+        return "f32";
+    case GgmlType::F16:
+        return "f16";
+    case GgmlType::Q4_0:
+        return "q4_0";
+    case GgmlType::Q4_1:
+        return "q4_1";
+    case GgmlType::Q5_0:
+        return "q5_0";
+    case GgmlType::Q5_1:
+        return "q5_1";
+    case GgmlType::Q8_0:
+        return "q8_0";
+    case GgmlType::Q8_1:
+        return "q8_1";
+    case GgmlType::Q2_K:
+        return "q2_k";
+    case GgmlType::Q3_K:
+        return "q3_k";
+    case GgmlType::Q4_K:
+        return "q4_k";
+    case GgmlType::Q5_K:
+        return "q5_k";
+    case GgmlType::Q6_K:
+        return "q6_k";
+    case GgmlType::Q8_K:
+        return "q8_k";
+    case GgmlType::IQ2_XXS:
+        return "iq2_xxs";
+    case GgmlType::IQ2_XS:
+        return "iq2_xs";
+    case GgmlType::IQ3_XXS:
+        return "iq3_xxs";
+    case GgmlType::IQ1_S:
+        return "iq1_s";
+    case GgmlType::IQ4_NL:
+        return "iq4_nl";
+    case GgmlType::IQ3_S:
+        return "iq3_s";
+    case GgmlType::IQ2_S:
+        return "iq2_s";
+    case GgmlType::IQ4_XS:
+        return "iq4_xs";
+    case GgmlType::I8:
+        return "i8";
+    case GgmlType::I16:
+        return "i16";
+    case GgmlType::I32:
+        return "i32";
+    case GgmlType::I64:
+        return "i64";
+    case GgmlType::F64:
+        return "f64";
+    case GgmlType::IQ1_M:
+        return "iq1_m";
+    case GgmlType::BF16:
+        return "bf16";
+    case GgmlType::TQ1_0:
+        return "tq1_0";
+    case GgmlType::TQ2_0:
+        return "tq2_0";
+    case GgmlType::MXFP4:
+        return "mxfp4";
+    }
+
+    return "<unknown>";
+}
+
 } // namespace
 
 auto main(int argc, char **argv) -> int {
@@ -299,5 +508,47 @@ auto main(int argc, char **argv) -> int {
 
         // Only print the first 128 characters of the value to avoid flooding the terminal.
         std::println("* {}: {}", *key, to_string(*value).substr(0, 128));
+    }
+
+    std::println();
+
+    for (std::uint64_t i = 0; i < *tensor_count; ++i) {
+        auto tensor_name = read<std::string>(file);
+        if (!tensor_name) {
+            std::println(stderr, "Failed to read tensor name");
+            return 1;
+        }
+
+        auto dimension_count = read<std::uint32_t>(file);
+        if (!dimension_count) {
+            std::println(stderr, "Failed to read dimension count");
+            return 1;
+        }
+
+        for (std::uint32_t j = 0; j < *dimension_count; ++j) {
+            auto dim = read<std::uint64_t>(file);
+            if (!dim) {
+                std::println(stderr, "Failed to read tensor dimension");
+                return 1;
+            }
+        }
+
+        auto tensor_type = read<GgmlType>(file);
+        if (!tensor_type) {
+            std::println(stderr, "Failed to read tensor type");
+            return 1;
+        }
+
+        auto tensor_offset = read<std::uint64_t>(file);
+        if (!tensor_offset) {
+            std::println(stderr, "Failed to read tensor offset");
+            return 1;
+        }
+
+        std::println(
+            "+ {}: type={}, offset={}",
+            *tensor_name,
+            to_string(*tensor_type),
+            *tensor_offset);
     }
 }
