@@ -2,13 +2,15 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause
 
+#ifndef RAMA_GGUF_GGUF_H_
+#define RAMA_GGUF_GGUF_H_
+
 #include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <format>
-#include <fstream>
+#include <istream>
 #include <optional>
 #include <print>
 #include <string>
@@ -16,7 +18,7 @@
 #include <variant>
 #include <vector>
 
-namespace {
+namespace gguf {
 
 // https://github.com/ggml-org/ggml/blob/456172ec733a135778adcd32d00e576a58232e45/docs/gguf.md
 template<typename T>
@@ -35,7 +37,7 @@ auto read(std::istream &stream) -> std::optional<T> {
 }
 
 template<>
-auto read<float>(std::istream &stream) -> std::optional<float> {
+inline auto read<float>(std::istream &stream) -> std::optional<float> {
     auto value = read<std::uint32_t>(stream);
     if (!value) {
         return std::nullopt;
@@ -47,7 +49,7 @@ auto read<float>(std::istream &stream) -> std::optional<float> {
 }
 
 template<>
-auto read<std::string>(std::istream &stream) -> std::optional<std::string> {
+inline auto read<std::string>(std::istream &stream) -> std::optional<std::string> {
     auto length = read<std::uint64_t>(stream);
     if (!length) {
         return std::nullopt;
@@ -78,7 +80,7 @@ enum class GgufType : std::uint8_t {
     Float64 = 12,
 };
 
-auto to_string(GgufType type) -> std::string_view {
+constexpr auto to_string(GgufType type) -> std::string_view {
     switch (type) {
     case GgufType::Uint8:
         return "uint8";
@@ -112,7 +114,7 @@ auto to_string(GgufType type) -> std::string_view {
 }
 
 template<>
-auto read<GgufType>(std::istream &stream) -> std::optional<GgufType> {
+inline auto read<GgufType>(std::istream &stream) -> std::optional<GgufType> {
     auto value = read<std::int32_t>(stream);
     if (!value || *value < static_cast<std::int32_t>(GgufType::Uint8) ||
         *value > static_cast<std::int32_t>(GgufType::Float64)) {
@@ -127,7 +129,7 @@ struct GgufValue {
     std::variant<std::uint32_t, std::int32_t, float, std::string, std::vector<GgufValue>> v;
 };
 
-auto to_string(GgufValue const &value) -> std::string {
+constexpr auto to_string(GgufValue const &value) -> std::string {
     struct GgufStringifier {
         std::string operator()(std::uint32_t v) const { return std::to_string(v); }
         std::string operator()(std::int32_t v) const { return std::to_string(v); }
@@ -149,7 +151,7 @@ auto to_string(GgufValue const &value) -> std::string {
     return std::visit(GgufStringifier{}, value.v);
 }
 
-auto read_gguf_value(std::istream &stream, GgufType type) -> std::optional<GgufValue> {
+inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optional<GgufValue> {
     switch (type) {
     case GgufType::Uint32: {
         auto value = read<std::uint32_t>(stream);
@@ -258,7 +260,7 @@ enum class GgmlType : std::uint8_t {
 };
 
 template<>
-auto read<GgmlType>(std::istream &stream) -> std::optional<GgmlType> {
+inline auto read<GgmlType>(std::istream &stream) -> std::optional<GgmlType> {
     auto value = read<std::uint32_t>(stream);
     if (!value) {
         return std::nullopt;
@@ -359,7 +361,7 @@ auto read<GgmlType>(std::istream &stream) -> std::optional<GgmlType> {
     }
 }
 
-auto to_string(GgmlType type) -> std::string_view {
+constexpr auto to_string(GgmlType type) -> std::string_view {
     switch (type) {
     case GgmlType::F32:
         return "f32";
@@ -430,125 +432,6 @@ auto to_string(GgmlType type) -> std::string_view {
     return "<unknown>";
 }
 
-} // namespace
+} // namespace gguf
 
-auto main(int argc, char **argv) -> int {
-    if (argc < 2) {
-        char const *program_name = argv[0] != nullptr ? argv[0] : "<bin>";
-        std::println(stderr, "Usage: {} <GGUF path>", program_name);
-        return 1;
-    }
-
-    char const *gguf_path = argv[1];
-    std::ifstream file{gguf_path, std::ios::binary};
-    if (!file) {
-        std::println(stderr, "Failed to open file: {}", gguf_path);
-        return 1;
-    }
-
-    auto magic = read<std::uint32_t>(file);
-    if (!magic) {
-        std::println(stderr, "Failed to read magic number");
-        return 1;
-    }
-
-    if (magic != 0x46554747) {
-        std::println(stderr, "Invalid magic number: {:08x}", *magic);
-        return 1;
-    }
-
-    auto version = read<std::uint32_t>(file);
-    if (!version) {
-        std::println(stderr, "Failed to read version");
-        return 1;
-    }
-
-    std::println("GGUF version: {}", *version);
-
-    if (*version != 3) {
-        std::println(stderr, "Unsupported GGUF version: {}", *version);
-        return 1;
-    }
-
-    auto tensor_count = read<std::uint64_t>(file);
-    if (!tensor_count) {
-        std::println(stderr, "Failed to read tensor count");
-        return 1;
-    }
-
-    std::println("Tensor count: {}", *tensor_count);
-
-    auto metadata_kv_count = read<std::uint64_t>(file);
-    if (!metadata_kv_count) {
-        std::println(stderr, "Failed to read metadata key-value count");
-        return 1;
-    }
-
-    std::println("Metadata count: {}", *metadata_kv_count);
-
-    for (std::uint64_t i = 0; i < *metadata_kv_count; ++i) {
-        auto key = read<std::string>(file);
-        if (!key) {
-            std::println(stderr, "Failed to read metadata key");
-            return 1;
-        }
-
-        auto type = read<GgufType>(file);
-        if (!type) {
-            std::println(stderr, "Failed to read metadata type");
-            return 1;
-        }
-
-        auto value = read_gguf_value(file, *type);
-        if (!value) {
-            std::println(
-                stderr, "Unsupported metadata key '{}' w/ type '{}'", *key, to_string(*type));
-            return 1;
-        }
-
-        // Only print the first 128 characters of the value to avoid flooding the terminal.
-        std::println("* {}: {}", *key, to_string(*value).substr(0, 128));
-    }
-
-    std::println();
-
-    for (std::uint64_t i = 0; i < *tensor_count; ++i) {
-        auto tensor_name = read<std::string>(file);
-        if (!tensor_name) {
-            std::println(stderr, "Failed to read tensor name");
-            return 1;
-        }
-
-        auto dimension_count = read<std::uint32_t>(file);
-        if (!dimension_count) {
-            std::println(stderr, "Failed to read dimension count");
-            return 1;
-        }
-
-        for (std::uint32_t j = 0; j < *dimension_count; ++j) {
-            auto dim = read<std::uint64_t>(file);
-            if (!dim) {
-                std::println(stderr, "Failed to read tensor dimension");
-                return 1;
-            }
-        }
-
-        auto tensor_type = read<GgmlType>(file);
-        if (!tensor_type) {
-            std::println(stderr, "Failed to read tensor type");
-            return 1;
-        }
-
-        auto tensor_offset = read<std::uint64_t>(file);
-        if (!tensor_offset) {
-            std::println(stderr, "Failed to read tensor offset");
-            return 1;
-        }
-
-        std::println(
-            "+ {}: type={}, offset={}",
-            *tensor_name,
-            to_string(*tensor_type),
-            *tensor_offset);
-    }
-}
+#endif
