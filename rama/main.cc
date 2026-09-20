@@ -64,6 +64,9 @@ auto main(int argc, char **argv) -> int {
 
     std::println("Metadata count: {}", *metadata_kv_count);
 
+    std::vector<gguf::GgufMetadataKV> metadata_kv;
+    metadata_kv.reserve(*metadata_kv_count);
+
     for (std::uint64_t i = 0; i < *metadata_kv_count; ++i) {
         auto key = gguf::read<std::string>(file);
         if (!key) {
@@ -86,9 +89,14 @@ auto main(int argc, char **argv) -> int {
 
         // Only print the first 128 characters of the value to avoid flooding the terminal.
         std::println("* {}: {}", *key, to_string(*value).substr(0, 128));
+
+        metadata_kv.emplace_back(gguf::GgufMetadataKV{*key, *type, *value});
     }
 
     std::println();
+
+    std::vector<gguf::GgufTensorInfo> tensor_infos;
+    tensor_infos.reserve(*tensor_count);
 
     for (std::uint64_t i = 0; i < *tensor_count; ++i) {
         auto tensor_name = gguf::read<std::string>(file);
@@ -103,12 +111,16 @@ auto main(int argc, char **argv) -> int {
             return 1;
         }
 
+        std::vector<std::uint64_t> dimensions;
+        dimensions.reserve(*dimension_count);
+
         for (std::uint32_t j = 0; j < *dimension_count; ++j) {
             auto dim = gguf::read<std::uint64_t>(file);
             if (!dim) {
                 std::println(stderr, "Failed to read tensor dimension");
                 return 1;
             }
+            dimensions.push_back(*dim);
         }
 
         auto tensor_type = gguf::read<gguf::GgmlType>(file);
@@ -125,5 +137,13 @@ auto main(int argc, char **argv) -> int {
 
         std::println(
             "+ {}: type={}, offset={}", *tensor_name, to_string(*tensor_type), *tensor_offset);
+
+        tensor_infos.emplace_back(
+            gguf::GgufTensorInfo{
+                std::move(*tensor_name),
+                std::move(dimensions),
+                *tensor_type,
+                *tensor_offset,
+            });
     }
 }
