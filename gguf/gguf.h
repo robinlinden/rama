@@ -224,6 +224,12 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
     }
 }
 
+struct GgufMetadataKV {
+    std::string key;
+    GgufType valueType;
+    GgufValue value;
+};
+
 enum class GgmlType : std::uint8_t {
     F32,
     F16,
@@ -431,6 +437,20 @@ constexpr auto to_string(GgmlType type) -> std::string_view {
 
     return "<unknown>";
 }
+
+struct GgufTensorInfo {
+    std::string name;
+    std::vector<std::uint64_t> dimensions;
+    GgmlType type;
+    std::uint64_t offset;
+};
+
+struct GgufMetadata {
+    std::uint32_t magic;
+    std::uint32_t version;
+    std::vector<GgufMetadataKV> metadata_kv;
+    std::vector<GgufTensorInfo> tensor_infos;
+};
 
 } // namespace gguf
 
