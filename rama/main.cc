@@ -4,7 +4,6 @@
 
 #include "gguf/gguf.h"
 
-#include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <print>
@@ -24,126 +23,30 @@ auto main(int argc, char **argv) -> int {
         return 1;
     }
 
-    auto magic = gguf::read<std::uint32_t>(file);
-    if (!magic) {
-        std::println(stderr, "Failed to read magic number");
+    auto metadata = gguf::read_gguf_metadata(file);
+    if (!metadata) {
+        std::println(stderr, "Failed to parse metadata");
         return 1;
     }
 
-    if (magic != 0x46554747) {
-        std::println(stderr, "Invalid magic number: {:08x}", *magic);
-        return 1;
-    }
+    std::println("GGUF version: {}", metadata->version);
 
-    auto version = gguf::read<std::uint32_t>(file);
-    if (!version) {
-        std::println(stderr, "Failed to read version");
-        return 1;
-    }
+    std::println("Tensor count: {}", metadata->tensor_infos.size());
 
-    std::println("GGUF version: {}", *version);
+    std::println("Metadata count: {}", metadata->metadata_kv.size());
 
-    if (*version != 3) {
-        std::println(stderr, "Unsupported GGUF version: {}", *version);
-        return 1;
-    }
-
-    auto tensor_count = gguf::read<std::uint64_t>(file);
-    if (!tensor_count) {
-        std::println(stderr, "Failed to read tensor count");
-        return 1;
-    }
-
-    std::println("Tensor count: {}", *tensor_count);
-
-    auto metadata_kv_count = gguf::read<std::uint64_t>(file);
-    if (!metadata_kv_count) {
-        std::println(stderr, "Failed to read metadata key-value count");
-        return 1;
-    }
-
-    std::println("Metadata count: {}", *metadata_kv_count);
-
-    std::vector<gguf::GgufMetadataKV> metadata_kv;
-    metadata_kv.reserve(*metadata_kv_count);
-
-    for (std::uint64_t i = 0; i < *metadata_kv_count; ++i) {
-        auto key = gguf::read<std::string>(file);
-        if (!key) {
-            std::println(stderr, "Failed to read metadata key");
-            return 1;
-        }
-
-        auto type = gguf::read<gguf::GgufType>(file);
-        if (!type) {
-            std::println(stderr, "Failed to read metadata type");
-            return 1;
-        }
-
-        auto value = gguf::read_gguf_value(file, *type);
-        if (!value) {
-            std::println(
-                stderr, "Unsupported metadata key '{}' w/ type '{}'", *key, to_string(*type));
-            return 1;
-        }
-
+    for (auto const &metadata_kv : metadata->metadata_kv) {
         // Only print the first 128 characters of the value to avoid flooding the terminal.
-        std::println("* {}: {}", *key, to_string(*value).substr(0, 128));
-
-        metadata_kv.emplace_back(gguf::GgufMetadataKV{*key, *type, *value});
+        std::println("* {}: {}", metadata_kv.key, to_string(metadata_kv.value).substr(0, 128));
     }
 
     std::println();
 
-    std::vector<gguf::GgufTensorInfo> tensor_infos;
-    tensor_infos.reserve(*tensor_count);
-
-    for (std::uint64_t i = 0; i < *tensor_count; ++i) {
-        auto tensor_name = gguf::read<std::string>(file);
-        if (!tensor_name) {
-            std::println(stderr, "Failed to read tensor name");
-            return 1;
-        }
-
-        auto dimension_count = gguf::read<std::uint32_t>(file);
-        if (!dimension_count) {
-            std::println(stderr, "Failed to read dimension count");
-            return 1;
-        }
-
-        std::vector<std::uint64_t> dimensions;
-        dimensions.reserve(*dimension_count);
-
-        for (std::uint32_t j = 0; j < *dimension_count; ++j) {
-            auto dim = gguf::read<std::uint64_t>(file);
-            if (!dim) {
-                std::println(stderr, "Failed to read tensor dimension");
-                return 1;
-            }
-            dimensions.push_back(*dim);
-        }
-
-        auto tensor_type = gguf::read<gguf::GgmlType>(file);
-        if (!tensor_type) {
-            std::println(stderr, "Failed to read tensor type");
-            return 1;
-        }
-
-        auto tensor_offset = gguf::read<std::uint64_t>(file);
-        if (!tensor_offset) {
-            std::println(stderr, "Failed to read tensor offset");
-            return 1;
-        }
-
+    for (auto const &tensor_info : metadata->tensor_infos) {
         std::println(
-            "+ {}: type={}, offset={}", *tensor_name, to_string(*tensor_type), *tensor_offset);
-
-        tensor_infos.emplace_back(
-            gguf::GgufTensorInfo{
-                std::move(*tensor_name),
-                std::move(dimensions),
-                *tensor_type,
-                *tensor_offset,
-            });
+            "+ {}: type={}, offset={}",
+            tensor_info.name,
+            to_string(tensor_info.type),
+            tensor_info.offset);
     }
 }
