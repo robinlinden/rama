@@ -46,6 +46,53 @@ auto parse_merges(std::span<gguf::GgufValue const> gguf_merges) -> std::vector<M
     return merges;
 }
 
+auto starting_tokens_for_prompt(std::string_view prompt) -> std::vector<std::string> {
+    std::vector<std::string> tokens;
+    tokens.resize(prompt.size());
+    for (auto c : prompt) {
+        tokens.push_back(std::string{c});
+    }
+
+    return tokens;
+}
+
+// TODO(robinlinden): This is the most naive implementation. Do something better.
+auto apply_merges(std::vector<std::string> tokens_to_merge, std::span<Merge const> merges)
+    -> std::vector<std::string> {
+    while (true) {
+        std::optional<std::size_t> best_merge_index;
+        std::int32_t lowest_rank = std::numeric_limits<std::int32_t>::max();
+
+        // Find the pair w/ the lowest rank, if any.
+        for (std::size_t i = 0; i < tokens_to_merge.size() - 1; ++i) {
+            for (auto const &merge : merges) {
+                if (tokens_to_merge[i] == merge.lhs && tokens_to_merge[i + 1] == merge.rhs) {
+                    if (merge.rank < lowest_rank) {
+                        lowest_rank = merge.rank;
+                        best_merge_index = i;
+                    }
+                }
+            }
+        }
+
+        // No merges left to do.
+        if (!best_merge_index.has_value()) {
+            break;
+        }
+
+        std::println(
+            "Merging {} and {}!",
+            tokens_to_merge[*best_merge_index],
+            tokens_to_merge[*best_merge_index + 1]);
+
+        // Perform the merge.
+        tokens_to_merge[*best_merge_index] += tokens_to_merge[*best_merge_index + 1];
+        tokens_to_merge.erase(tokens_to_merge.begin() + *best_merge_index + 1);
+    }
+
+    return tokens_to_merge;
+}
+
 } // namespace
 
 auto main(int argc, char **argv) -> int {
@@ -100,12 +147,22 @@ auto main(int argc, char **argv) -> int {
         return 1;
     }
 
+    std::println();
+
     // TODO(robinlinden): If this exists, it's required to be array[string]. We
     // should probably enforce these things when parsing.
     assert(std::holds_alternative<std::vector<gguf::GgufValue>>(maybe_merges->value.v));
     auto const &raw_merges = std::get<std::vector<gguf::GgufValue>>(maybe_merges->value.v);
-    auto parsed = parse_merges(raw_merges);
-    for (auto const &merge : parsed) {
-        std::println("{}: '{}', '{}'", merge.rank, merge.lhs, merge.rhs);
+    auto merges = parse_merges(raw_merges);
+
+    auto prompt_tokens = starting_tokens_for_prompt(argv[2]);
+    prompt_tokens = apply_merges(std::move(prompt_tokens), merges);
+
+    std::println("Merged tokens:");
+    for (std::size_t i = 0; i < prompt_tokens.size(); ++i) {
+        auto const &token = prompt_tokens[i];
+        std::println("{}: {}", i, token);
     }
+
+    // TODO(robinlinden): String tokens -> actual numerical tokens from the metadata.
 }
