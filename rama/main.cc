@@ -4,15 +4,54 @@
 
 #include "gguf/gguf.h"
 
+#include <cassert>
+#include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <optional>
 #include <print>
+#include <span>
 #include <string>
+#include <variant>
+
+namespace {
+
+struct Merge {
+    std::string lhs;
+    std::string rhs;
+    std::int32_t rank{};
+};
+
+constexpr auto split_once(std::string_view str, char sep)
+    -> std::pair<std::string_view, std::string_view> {
+    if (auto p = str.find(sep); p != std::string_view::npos) {
+        return {str.substr(0, p), str.substr(p + 1)};
+    }
+
+    return {str, ""};
+}
+
+auto parse_merges(std::span<gguf::GgufValue const> gguf_merges) -> std::vector<Merge> {
+    std::vector<Merge> merges;
+    merges.reserve(gguf_merges.size());
+
+    for (std::size_t i = 0; i < gguf_merges.size(); ++i) {
+        auto const &gguf_merge = gguf_merges[i].v;
+        assert(std::holds_alternative<std::string>(gguf_merge));
+
+        auto [lhs, rhs] = split_once(std::get<std::string>(gguf_merge), ' ');
+        merges.emplace_back(std::string{lhs}, std::string{rhs}, static_cast<std::uint32_t>(i));
+    }
+
+    return merges;
+}
+
+} // namespace
 
 auto main(int argc, char **argv) -> int {
     if (argc < 2) {
         char const *program_name = argv[0] != nullptr ? argv[0] : "<bin>";
-        std::println(stderr, "Usage: {} <GGUF path>", program_name);
+        std::println(stderr, "Usage: {} <GGUF path> [prompt]", program_name);
         return 1;
     }
 
@@ -48,5 +87,25 @@ auto main(int argc, char **argv) -> int {
             tensor_info.name,
             to_string(tensor_info.type),
             tensor_info.offset);
+    }
+
+    if (argc < 3) {
+        return 0;
+    }
+
+    auto maybe_merges = std::ranges::find(
+        metadata->metadata_kv, "tokenizer.ggml.merges", &gguf::GgufMetadataKV::key);
+    if (maybe_merges == std::end(metadata->metadata_kv)) {
+        std::println(stderr, "Missing tokenizer.ggml.merges metadata? :(");
+        return 1;
+    }
+
+    // TODO(robinlinden): If this exists, it's required to be array[string]. We
+    // should probably enforce these things when parsing.
+    assert(std::holds_alternative<std::vector<gguf::GgufValue>>(maybe_merges->value.v));
+    auto const &raw_merges = std::get<std::vector<gguf::GgufValue>>(maybe_merges->value.v);
+    auto parsed = parse_merges(raw_merges);
+    for (auto const &merge : parsed) {
+        std::println("{}: '{}', '{}'", merge.rank, merge.lhs, merge.rhs);
     }
 }
