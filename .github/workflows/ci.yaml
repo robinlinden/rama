@@ -8,6 +8,34 @@ permissions:
   contents: read
 
 jobs:
+  linux:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-gcc-15
+            os: ubuntu-26.04
+            cc: gcc-15
+            cxx: g++-15
+
+          - name: linux-clang-22
+            os: ubuntu-26.04
+            cc: clang-22
+            cxx: clang++-22
+
+          - name: windows-msvc
+            os: windows-2025
+
+    steps:
+      - run: echo "CC=${{ matrix.cc }}" >>$GITHUB_ENV && echo "CXX=${{ matrix.cxx }}" >>$GITHUB_ENV
+        if: ${{ matrix.cc != '' }}
+      - uses: actions/checkout@v7
+      - run: bazel build ...
+
   clang-format:
     # Not ubuntu-slim as it's ubuntu-24.04-based and needs the llvm apt repo for
     # modern-ish llvm, and the llvm apt repository is pretty flaky.
