@@ -1,0 +1,19 @@
+on:
+  pull_request:
+  workflow_dispatch:
+name: ci
+
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
+permissions:
+  contents: read
+
+jobs:
+  clang-format:
+    # Not ubuntu-slim as it's ubuntu-24.04-based and needs the llvm apt repo for
+    # modern-ish llvm, and the llvm apt repository is pretty flaky.
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo apt-get update && sudo apt-get install --no-install-recommends clang-format-22
+      - run: find . -name "*.h" -o -name "*.cc" | xargs clang-format-22 -style=file -i
+      - run: git diff --exit-code
