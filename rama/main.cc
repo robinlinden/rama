@@ -140,6 +140,20 @@ auto main(int argc, char **argv) -> int {
         return 0;
     }
 
+    auto maybe_model = std::ranges::find(
+        metadata->metadata_kv, "tokenizer.ggml.model", &gguf::GgufMetadataKV::key);
+    if (maybe_model == std::end(metadata->metadata_kv)) {
+        std::println(stderr, "Missing tokenizer.ggml.model metadata? :(");
+        return 1;
+    }
+
+    assert(std::holds_alternative<std::string>(maybe_model->value.v));
+    auto const &model = std::get<std::string>(maybe_model->value.v);
+    if (model != "gemma4") {
+        std::println(stderr, "Only gemma4 models are supported right now");
+        return 1;
+    }
+
     auto maybe_merges = std::ranges::find(
         metadata->metadata_kv, "tokenizer.ggml.merges", &gguf::GgufMetadataKV::key);
     if (maybe_merges == std::end(metadata->metadata_kv)) {
