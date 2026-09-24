@@ -45,3 +45,10 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install --no-install-recommends clang-format-22
       - run: find . -name "*.h" -o -name "*.cc" | xargs clang-format-22 -style=file -i
       - run: git diff --exit-code
+
+  buildifier:
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@v7
+      - run: curl -Lo buildifier https://github.com/bazelbuild/buildtools/releases/download/v10.1.0/buildifier-linux-amd64 && sudo chmod +x buildifier
+      - run: ./buildifier -lint warn -warnings all -mode diff $(find . -type f -iname "*.bazel")
