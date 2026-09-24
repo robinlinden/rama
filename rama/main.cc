@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include "ende/ende.h"
 #include "gguf/gguf.h"
 
 #include <cassert>
@@ -16,12 +17,6 @@
 
 namespace {
 
-struct Merge {
-    std::string lhs;
-    std::string rhs;
-    std::int32_t rank{};
-};
-
 constexpr auto split_once(std::string_view str, char sep)
     -> std::pair<std::string_view, std::string_view> {
     if (auto p = str.find(sep); p != std::string_view::npos) {
@@ -31,8 +26,8 @@ constexpr auto split_once(std::string_view str, char sep)
     return {str, ""};
 }
 
-auto parse_merges(std::span<gguf::GgufValue const> gguf_merges) -> std::vector<Merge> {
-    std::vector<Merge> merges;
+auto parse_merges(std::span<gguf::GgufValue const> gguf_merges) -> std::vector<ende::Merge> {
+    std::vector<ende::Merge> merges;
     merges.reserve(gguf_merges.size());
 
     for (std::size_t i = 0; i < gguf_merges.size(); ++i) {
@@ -44,53 +39,6 @@ auto parse_merges(std::span<gguf::GgufValue const> gguf_merges) -> std::vector<M
     }
 
     return merges;
-}
-
-auto starting_tokens_for_prompt(std::string_view prompt) -> std::vector<std::string> {
-    std::vector<std::string> tokens;
-    tokens.resize(prompt.size());
-    for (auto c : prompt) {
-        tokens.push_back(std::string{c});
-    }
-
-    return tokens;
-}
-
-// TODO(robinlinden): This is the most naive implementation. Do something better.
-auto apply_merges(std::vector<std::string> tokens_to_merge, std::span<Merge const> merges)
-    -> std::vector<std::string> {
-    while (true) {
-        std::optional<std::size_t> best_merge_index;
-        std::int32_t lowest_rank = std::numeric_limits<std::int32_t>::max();
-
-        // Find the pair w/ the lowest rank, if any.
-        for (std::size_t i = 0; i < tokens_to_merge.size() - 1; ++i) {
-            for (auto const &merge : merges) {
-                if (tokens_to_merge[i] == merge.lhs && tokens_to_merge[i + 1] == merge.rhs) {
-                    if (merge.rank < lowest_rank) {
-                        lowest_rank = merge.rank;
-                        best_merge_index = i;
-                    }
-                }
-            }
-        }
-
-        // No merges left to do.
-        if (!best_merge_index.has_value()) {
-            break;
-        }
-
-        std::println(
-            "Merging {} and {}!",
-            tokens_to_merge[*best_merge_index],
-            tokens_to_merge[*best_merge_index + 1]);
-
-        // Perform the merge.
-        tokens_to_merge[*best_merge_index] += tokens_to_merge[*best_merge_index + 1];
-        tokens_to_merge.erase(tokens_to_merge.begin() + *best_merge_index + 1);
-    }
-
-    return tokens_to_merge;
 }
 
 } // namespace
@@ -169,8 +117,8 @@ auto main(int argc, char **argv) -> int {
     auto const &raw_merges = std::get<std::vector<gguf::GgufValue>>(maybe_merges->value.v);
     auto merges = parse_merges(raw_merges);
 
-    auto prompt_tokens = starting_tokens_for_prompt(argv[2]);
-    prompt_tokens = apply_merges(std::move(prompt_tokens), merges);
+    auto prompt_tokens = ende::starting_tokens_for_prompt(argv[2]);
+    prompt_tokens = ende::apply_merges(std::move(prompt_tokens), merges);
 
     std::println("Merged tokens:");
     for (std::size_t i = 0; i < prompt_tokens.size(); ++i) {
