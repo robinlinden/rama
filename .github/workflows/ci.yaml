@@ -34,7 +34,7 @@ jobs:
       - run: echo "CC=${{ matrix.cc }}" >>$GITHUB_ENV && echo "CXX=${{ matrix.cxx }}" >>$GITHUB_ENV
         if: ${{ matrix.cc != '' }}
       - uses: actions/checkout@v7
-      - run: bazel build ...
+      - run: bazel test ...
 
   clang-format:
     # Not ubuntu-slim as it's ubuntu-24.04-based and needs the llvm apt repo for

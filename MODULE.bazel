@@ -1,1 +1,19 @@
 bazel_dep(name = "rules_cc", version = "0.2.25")
+
+HASTUR_VERSION = "efc0b8aa0e225847f706a743b5027563d586de19"
+
+bazel_dep(name = "hastur")
+archive_override(
+    module_name = "hastur",
+    integrity = "sha256-qS0lsZlAlqpGHLDmI9f527cn3VHRGovrFNblU/BmTXg=",
+    # TODO(robinlinden): Make depending on Hastur easier.
+    patch_cmds = [
+        """cat <<EOF >MODULE.bazel
+module(name = "hastur")
+bazel_dep(name = "rules_cc", version = "0.2.25")
+bazel_dep(name = "rules_shell", version = "0.8.0")
+EOF""",
+    ],
+    strip_prefix = "hastur-%s" % HASTUR_VERSION,
+    url = "https://github.com/robinlinden/hastur/archive/%s.tar.gz" % HASTUR_VERSION,
+)
