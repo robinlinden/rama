@@ -7,12 +7,15 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <flat_map>
 #include <limits>
 #include <optional>
 #include <print>
+#include <ranges>
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace ende {
@@ -21,6 +24,30 @@ struct Merge {
     std::string lhs;
     std::string rhs;
     std::int32_t rank{};
+};
+
+struct Vocabulary {
+    std::vector<std::string> tokens_by_id;
+    std::flat_map<std::string_view, std::uint32_t> tokens_by_value;
+
+    bool operator==(Vocabulary const &) const = default;
+
+    constexpr static auto from_tokens(std::vector<std::string> tokens) -> Vocabulary {
+        std::vector<std::uint32_t> token_ids;
+        token_ids.reserve(tokens.size());
+        std::vector<std::string_view> token_values;
+        token_values.reserve(tokens.size());
+
+        for (std::size_t i = 0; i < tokens.size(); ++i) {
+            token_ids.push_back(i);
+            token_values.push_back(tokens[i]);
+        }
+
+        return Vocabulary{
+            .tokens_by_id{std::move(tokens)},
+            .tokens_by_value{std::move(token_values), std::move(token_ids)},
+        };
+    }
 };
 
 constexpr auto starting_tokens_for_prompt(std::string_view prompt) -> std::vector<std::string> {
