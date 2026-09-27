@@ -52,7 +52,7 @@ struct Vocabulary {
     }
 };
 
-constexpr auto starting_tokens_for_prompt(std::string_view prompt) -> std::vector<std::string> {
+constexpr auto into_byte_tokens(std::string_view text) -> std::vector<std::string> {
     std::vector<std::string> tokens;
     tokens.resize(prompt.size());
     for (auto c : prompt) {

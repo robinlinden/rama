@@ -117,7 +117,7 @@ auto main(int argc, char **argv) -> int {
     auto const &raw_merges = std::get<std::vector<gguf::GgufValue>>(maybe_merges->value.v);
     auto merges = parse_merges(raw_merges);
 
-    auto prompt_tokens = ende::starting_tokens_for_prompt(argv[2]);
+    auto prompt_tokens = ende::into_byte_tokens(argv[2]);
     prompt_tokens = ende::apply_merges(std::move(prompt_tokens), merges);
 
     std::println("Merged tokens:");
