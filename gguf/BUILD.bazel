@@ -1,7 +1,9 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//bzl:copts.bzl", "RAMA_COPTS")
 
 cc_library(
     name = "gguf",
     hdrs = ["gguf.h"],
+    copts = RAMA_COPTS,
     visibility = ["//visibility:public"],
 )

@@ -5,6 +5,7 @@
 #ifndef RAMA_ENDE_ENDE_H_
 #define RAMA_ENDE_ENDE_H_
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <flat_map>
@@ -38,8 +39,9 @@ struct Vocabulary {
         std::vector<std::string_view> token_values;
         token_values.reserve(tokens.size());
 
+        assert(tokens.size() < std::numeric_limits<std::uint32_t>::max());
         for (std::size_t i = 0; i < tokens.size(); ++i) {
-            token_ids.push_back(i);
+            token_ids.push_back(static_cast<std::uint32_t>(i));
             token_values.push_back(tokens[i]);
         }
 

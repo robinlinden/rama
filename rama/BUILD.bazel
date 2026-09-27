@@ -1,8 +1,10 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("//bzl:copts.bzl", "RAMA_COPTS")
 
 cc_binary(
     name = "rama",
     srcs = ["main.cc"],
+    copts = RAMA_COPTS,
     deps = [
         "//ende",
         "//gguf",

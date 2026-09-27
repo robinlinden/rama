@@ -1,4 +1,5 @@
 bazel_dep(name = "rules_cc", version = "0.2.25")
+bazel_dep(name = "platforms", version = "1.1.0")
 
 HASTUR_VERSION = "efc0b8aa0e225847f706a743b5027563d586de19"
 
