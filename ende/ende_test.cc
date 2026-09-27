@@ -28,5 +28,14 @@ int main() {
             });
     });
 
+    s.add_test("into_byte_tokens", [](etest::IActions &a) {
+        using Tokens = std::vector<std::string>;
+        a.expect_eq(ende::into_byte_tokens("hello"), Tokens{"h", "e", "l", "l", "o"});
+
+        // UTF-8 characters are split into bytes.
+        // U+03BB (GREEK SMALL LETTER LAMBDA).
+        a.expect_eq(ende::into_byte_tokens("\u03BB"), Tokens{"\xCE", "\xBB"});
+    });
+
     return s.run();
 }

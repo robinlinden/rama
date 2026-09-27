@@ -54,8 +54,8 @@ struct Vocabulary {
 
 constexpr auto into_byte_tokens(std::string_view text) -> std::vector<std::string> {
     std::vector<std::string> tokens;
-    tokens.resize(prompt.size());
-    for (auto c : prompt) {
+    tokens.reserve(text.size());
+    for (auto c : text) {
         tokens.push_back(std::string{c});
     }
 
