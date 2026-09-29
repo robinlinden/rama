@@ -127,17 +127,14 @@ auto make_gguf_header(
         write<std::uint64_t>(ss, kv.key.size());
         ss << kv.key;
 
-        switch (kv.valueType) {
-        case gguf::GgufType::Uint32:
+        if (auto const *vu32 = std::get_if<std::uint32_t>(&kv.value.v)) {
             write<std::int32_t>(ss, 4);
-            write<std::uint32_t>(ss, std::get<std::uint32_t>(kv.value.v));
-            break;
-        case gguf::GgufType::Bool:
+            write<std::uint32_t>(ss, *vu32);
+        } else if (auto const *vb = std::get_if<bool>(&kv.value.v)) {
             write<std::int32_t>(ss, 7);
-            write<std::int8_t>(ss, std::get<bool>(kv.value.v) ? 1 : 0);
-            break;
-        default:
-            std::println(stderr, "Unhandled kv-type: {}", gguf::to_string(kv.valueType));
+            write<std::int8_t>(ss, *vb ? 1 : 0);
+        } else {
+            std::println(stderr, "Unhandled kv-type: {}", kv.value.v.index());
             std::exit(1);
         }
     }
@@ -174,7 +171,7 @@ int main() {
 
     s.add_test("one metadata", [](etest::IActions &a) {
         std::vector<gguf::GgufMetadataKV> kvs{
-            gguf::GgufMetadataKV{.key = "hello", .valueType = gguf::GgufType::Uint32, .value{16u}},
+            gguf::GgufMetadataKV{.key = "hello", .value{16u}},
         };
 
         auto gguf = std::istringstream{make_gguf_header(kvs, {})};
@@ -205,7 +202,7 @@ int main() {
 
     s.add_test("both metadata and tensor info", [](etest::IActions &a) {
         std::vector<gguf::GgufMetadataKV> kvs{
-            gguf::GgufMetadataKV{.key = "hello", .valueType = gguf::GgufType::Uint32, .value{16u}},
+            gguf::GgufMetadataKV{.key = "hello", .value{16u}},
         };
 
         std::vector<gguf::GgufTensorInfo> infos{
@@ -227,8 +224,8 @@ int main() {
 
     s.add_test("metadata types", [](etest::IActions &a) {
         std::vector<gguf::GgufMetadataKV> kvs{
-            gguf::GgufMetadataKV{.key = "hello", .valueType = gguf::GgufType::Uint32, .value{16u}},
-            gguf::GgufMetadataKV{.key = "ohayou", .valueType = gguf::GgufType::Bool, .value{true}},
+            gguf::GgufMetadataKV{.key = "hello", .value{16u}},
+            gguf::GgufMetadataKV{.key = "ohayou", .value{true}},
         };
 
         auto gguf = std::istringstream{make_gguf_header(kvs, {})};

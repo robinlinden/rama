@@ -229,7 +229,6 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
 
 struct GgufMetadataKV {
     std::string key;
-    GgufType valueType;
     GgufValue value;
 
     bool operator==(GgufMetadataKV const &) const = default;
@@ -254,7 +253,7 @@ constexpr auto read_gguf_metadata_kv(std::istream &stream) -> std::optional<Gguf
         return std::nullopt;
     }
 
-    return GgufMetadataKV{*key, *type, *value};
+    return GgufMetadataKV{*key, *value};
 }
 
 enum class GgmlType : std::uint8_t {
