@@ -127,6 +127,8 @@ inline auto read<GgufType>(std::istream &stream) -> std::optional<GgufType> {
 struct GgufValue;
 struct GgufValue {
     std::variant<std::uint32_t, std::int32_t, float, std::string, std::vector<GgufValue>> v;
+
+    bool operator==(GgufValue const &) const = default;
 };
 
 constexpr auto to_string(GgufValue const &value) -> std::string {
@@ -228,6 +230,8 @@ struct GgufMetadataKV {
     std::string key;
     GgufType valueType;
     GgufValue value;
+
+    bool operator==(GgufMetadataKV const &) const = default;
 };
 
 constexpr auto read_gguf_metadata_kv(std::istream &stream) -> std::optional<GgufMetadataKV> {
@@ -465,6 +469,8 @@ struct GgufTensorInfo {
     std::vector<std::uint64_t> dimensions;
     GgmlType type;
     std::uint64_t offset;
+
+    bool operator==(GgufTensorInfo const &) const = default;
 };
 
 constexpr auto read_gguf_tensor_info(std::istream &stream) -> std::optional<GgufTensorInfo> {
