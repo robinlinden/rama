@@ -132,6 +132,10 @@ auto make_gguf_header(
             write<std::int32_t>(ss, 4);
             write<std::uint32_t>(ss, std::get<std::uint32_t>(kv.value.v));
             break;
+        case gguf::GgufType::Bool:
+            write<std::int32_t>(ss, 7);
+            write<std::int8_t>(ss, std::get<bool>(kv.value.v) ? 1 : 0);
+            break;
         default:
             std::println(stderr, "Unhandled kv-type: {}", gguf::to_string(kv.valueType));
             std::exit(1);
@@ -219,6 +223,20 @@ int main() {
         a.require(metadata.has_value());
         a.expect_eq(metadata->metadata_kv, kvs);
         a.expect_eq(metadata->tensor_infos, infos);
+    });
+
+    s.add_test("metadata types", [](etest::IActions &a) {
+        std::vector<gguf::GgufMetadataKV> kvs{
+            gguf::GgufMetadataKV{.key = "hello", .valueType = gguf::GgufType::Uint32, .value{16u}},
+            gguf::GgufMetadataKV{.key = "ohayou", .valueType = gguf::GgufType::Bool, .value{true}},
+        };
+
+        auto gguf = std::istringstream{make_gguf_header(kvs, {})};
+
+        auto metadata = gguf::read_gguf_metadata(gguf);
+        a.require(metadata.has_value());
+        a.expect_eq(metadata->metadata_kv, kvs);
+        a.expect_eq(metadata->tensor_infos.size(), 0);
     });
 
     return s.run();
