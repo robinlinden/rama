@@ -126,7 +126,9 @@ inline auto read<GgufType>(std::istream &stream) -> std::optional<GgufType> {
 
 struct GgufValue;
 struct GgufValue {
-    std::variant<std::uint32_t, std::int32_t, float, std::string, std::vector<GgufValue>> v;
+    std::variant<std::uint32_t, std::int32_t, float, bool, std::string, std::vector<GgufValue>> v;
+
+    bool operator==(GgufValue const &) const = default;
 };
 
 constexpr auto to_string(GgufValue const &value) -> std::string {
@@ -134,6 +136,7 @@ constexpr auto to_string(GgufValue const &value) -> std::string {
         std::string operator()(std::uint32_t v) const { return std::to_string(v); }
         std::string operator()(std::int32_t v) const { return std::to_string(v); }
         std::string operator()(float v) const { return std::to_string(v); }
+        std::string operator()(bool v) const { return std::to_string(v); }
         std::string operator()(std::string const &v) const { return v; }
         std::string operator()(std::vector<GgufValue> const &v) const {
             return "[" +
@@ -183,7 +186,7 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
             return std::nullopt;
         }
 
-        return GgufValue{static_cast<std::uint32_t>(*value != 0)};
+        return GgufValue{bool{*value != 0}};
     }
     case GgufType::String: {
         auto value = read<std::string>(stream);
@@ -226,8 +229,9 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
 
 struct GgufMetadataKV {
     std::string key;
-    GgufType valueType;
     GgufValue value;
+
+    bool operator==(GgufMetadataKV const &) const = default;
 };
 
 constexpr auto read_gguf_metadata_kv(std::istream &stream) -> std::optional<GgufMetadataKV> {
@@ -249,7 +253,7 @@ constexpr auto read_gguf_metadata_kv(std::istream &stream) -> std::optional<Gguf
         return std::nullopt;
     }
 
-    return GgufMetadataKV{*key, *type, *value};
+    return GgufMetadataKV{*key, *value};
 }
 
 enum class GgmlType : std::uint8_t {
@@ -465,6 +469,8 @@ struct GgufTensorInfo {
     std::vector<std::uint64_t> dimensions;
     GgmlType type;
     std::uint64_t offset;
+
+    bool operator==(GgufTensorInfo const &) const = default;
 };
 
 constexpr auto read_gguf_tensor_info(std::istream &stream) -> std::optional<GgufTensorInfo> {

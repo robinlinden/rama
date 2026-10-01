@@ -1,4 +1,4 @@
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
 load("//bzl:copts.bzl", "RAMA_COPTS")
 
 cc_library(
@@ -6,4 +6,24 @@ cc_library(
     hdrs = ["gguf.h"],
     copts = RAMA_COPTS,
     visibility = ["//visibility:public"],
+)
+
+cc_binary(
+    name = "gguf_benchmark",
+    srcs = ["gguf_benchmark.cc"],
+    copts = RAMA_COPTS,
+    deps = [
+        ":gguf",
+        "@hastur//etest",
+    ],
+)
+
+cc_test(
+    name = "gguf_test",
+    srcs = ["gguf_test.cc"],
+    copts = RAMA_COPTS,
+    deps = [
+        ":gguf",
+        "@hastur//etest",
+    ],
 )
