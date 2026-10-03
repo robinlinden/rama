@@ -1,9 +1,19 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_fuzzing//fuzzing:cc_defs.bzl", "cc_fuzz_test")
 load("//bzl:copts.bzl", "RAMA_COPTS")
+load("//bzl:fuzzing.bzl", "RAMA_FUZZ_PLATFORMS")
 
 cc_library(
     name = "gguf",
     hdrs = ["gguf.h"],
     copts = RAMA_COPTS,
     visibility = ["//visibility:public"],
+)
+
+cc_fuzz_test(
+    name = "gguf_fuzz_test",
+    srcs = ["gguf_fuzz_test.cc"],
+    copts = RAMA_COPTS,
+    target_compatible_with = RAMA_FUZZ_PLATFORMS,
+    deps = [":gguf"],
 )
