@@ -20,6 +20,13 @@
 
 namespace gguf {
 
+// TODO(robinlinden): These were picked at random. Pick values that make sense.
+static constexpr auto kMaxArrayLength = 64 * 1024 * 1024;
+static constexpr auto kMaxDimensionCount = kMaxArrayLength;
+static constexpr auto kMaxTensorCount = kMaxArrayLength;
+static constexpr auto kMaxMetadataCount = kMaxArrayLength;
+static constexpr auto kMaxStringLength = 64 * 1024 * 1024;
+
 // https://github.com/ggml-org/ggml/blob/456172ec733a135778adcd32d00e576a58232e45/docs/gguf.md
 template<typename T>
 auto read(std::istream &stream) -> std::optional<T> {
@@ -51,7 +58,7 @@ inline auto read<float>(std::istream &stream) -> std::optional<float> {
 template<>
 inline auto read<std::string>(std::istream &stream) -> std::optional<std::string> {
     auto length = read<std::uint64_t>(stream);
-    if (!length) {
+    if (!length || *length >= kMaxStringLength) {
         return std::nullopt;
     }
 
@@ -203,7 +210,7 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
         }
 
         auto array_length = read<std::uint64_t>(stream);
-        if (!array_length) {
+        if (!array_length || *array_length > kMaxArrayLength) {
             return std::nullopt;
         }
 
@@ -486,6 +493,12 @@ constexpr auto read_gguf_tensor_info(std::istream &stream) -> std::optional<Gguf
         return std::nullopt;
     }
 
+    if (*dimension_count > kMaxDimensionCount) {
+        std::println(
+            stderr, "Too many dimensions included: {} > {}", *dimension_count, kMaxDimensionCount);
+        return std::nullopt;
+    }
+
     std::vector<std::uint64_t> dimensions;
     dimensions.reserve(*dimension_count);
 
@@ -554,9 +567,19 @@ constexpr auto read_gguf_metadata(std::istream &stream) -> std::optional<GgufMet
         return std::nullopt;
     }
 
+    if (*tensor_count > kMaxTensorCount) {
+        std::println(stderr, "Too many tensors: {} > {}", *tensor_count, kMaxTensorCount);
+        return std::nullopt;
+    }
+
     auto metadata_kv_count = gguf::read<std::uint64_t>(stream);
     if (!metadata_kv_count) {
         std::println(stderr, "Failed to read metadata key-value count");
+        return std::nullopt;
+    }
+
+    if (*metadata_kv_count > kMaxMetadataCount) {
+        std::println(stderr, "Too many metadatas: {} > {}", *metadata_kv_count, kMaxMetadataCount);
         return std::nullopt;
     }
 
