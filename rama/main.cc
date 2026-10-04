@@ -59,7 +59,7 @@ auto main(int argc, char **argv) -> int {
 
     auto metadata = gguf::read_gguf_metadata(file);
     if (!metadata) {
-        std::println(stderr, "Failed to parse metadata");
+        std::println(stderr, "{}", gguf::to_string(metadata.error()));
         return 1;
     }
 

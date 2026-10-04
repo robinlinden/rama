@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <expected>
 #include <istream>
 #include <optional>
 #include <print>
@@ -241,23 +242,44 @@ struct GgufMetadataKV {
     bool operator==(GgufMetadataKV const &) const = default;
 };
 
-constexpr auto read_gguf_metadata_kv(std::istream &stream) -> std::optional<GgufMetadataKV> {
+enum class GgufParseError {
+    // read_gguf_metadata
+    FailedToReadMagicNumber,
+    InvalidMagicNumber,
+    FailedToReadVersion,
+    UnsupportedGgufVersion,
+    FailedToReadTensorCount,
+    TooManyTensors,
+    FailedToReadMetadataKvCount,
+    TooManyMetadata,
+    // read_gguf_tensor_info
+    FailedToReadTensorName,
+    FailedToReadDimensionCount,
+    TooManyTensorDimensions,
+    FailedToReadTensorDimension,
+    FailedToReadTensorType,
+    FailedToReadTensorOffset,
+    // read_gguf_metadata_kv
+    FailedToReadMetadataKey,
+    FailedToReadMetadataType,
+    UnsupportedMetadataKey,
+};
+
+constexpr auto read_gguf_metadata_kv(std::istream &stream)
+    -> std::expected<GgufMetadataKV, GgufParseError> {
     auto key = gguf::read<std::string>(stream);
     if (!key) {
-        std::println(stderr, "Failed to read metadata key");
-        return std::nullopt;
+        return std::unexpected(GgufParseError::FailedToReadMetadataKey);
     }
 
     auto type = gguf::read<gguf::GgufType>(stream);
     if (!type) {
-        std::println(stderr, "Failed to read metadata type");
-        return std::nullopt;
+        return std::unexpected(GgufParseError::FailedToReadMetadataType);
     }
 
     auto value = gguf::read_gguf_value(stream, *type);
     if (!value) {
-        std::println(stderr, "Unsupported metadata key '{}' w/ type '{}'", *key, to_string(*type));
-        return std::nullopt;
+        return std::unexpected(GgufParseError::UnsupportedMetadataKey);
     }
 
     return GgufMetadataKV{*key, *value};
@@ -480,23 +502,20 @@ struct GgufTensorInfo {
     bool operator==(GgufTensorInfo const &) const = default;
 };
 
-constexpr auto read_gguf_tensor_info(std::istream &stream) -> std::optional<GgufTensorInfo> {
+constexpr auto read_gguf_tensor_info(std::istream &stream)
+    -> std::expected<GgufTensorInfo, GgufParseError> {
     auto tensor_name = gguf::read<std::string>(stream);
     if (!tensor_name) {
-        std::println(stderr, "Failed to read tensor name");
-        return std::nullopt;
+        return std::unexpected(GgufParseError::FailedToReadTensorName);
     }
 
     auto dimension_count = gguf::read<std::uint32_t>(stream);
     if (!dimension_count) {
-        std::println(stderr, "Failed to read dimension count");
-        return std::nullopt;
+        return std::unexpected(GgufParseError::FailedToReadDimensionCount);
     }
 
     if (*dimension_count > kMaxDimensionCount) {
-        std::println(
-            stderr, "Too many dimensions included: {} > {}", *dimension_count, kMaxDimensionCount);
-        return std::nullopt;
+        return std::unexpected(GgufParseError::TooManyTensorDimensions);
     }
 
     std::vector<std::uint64_t> dimensions;
@@ -505,22 +524,19 @@ constexpr auto read_gguf_tensor_info(std::istream &stream) -> std::optional<Gguf
     for (std::uint32_t j = 0; j < *dimension_count; ++j) {
         auto dim = gguf::read<std::uint64_t>(stream);
         if (!dim) {
-            std::println(stderr, "Failed to read tensor dimension");
-            return std::nullopt;
+            return std::unexpected(GgufParseError::FailedToReadTensorDimension);
         }
         dimensions.push_back(*dim);
     }
 
     auto tensor_type = gguf::read<gguf::GgmlType>(stream);
     if (!tensor_type) {
-        std::println(stderr, "Failed to read tensor type");
-        return std::nullopt;
+        return std::unexpected(GgufParseError::FailedToReadTensorType);
     }
 
     auto tensor_offset = gguf::read<std::uint64_t>(stream);
     if (!tensor_offset) {
-        std::println(stderr, "Failed to read tensor offset");
-        return std::nullopt;
+        return std::unexpected(GgufParseError::FailedToReadTensorOffset);
     }
 
     return gguf::GgufTensorInfo{
@@ -538,49 +554,82 @@ struct GgufMetadata {
     std::vector<GgufTensorInfo> tensor_infos;
 };
 
-constexpr auto read_gguf_metadata(std::istream &stream) -> std::optional<GgufMetadata> {
+constexpr auto to_string(GgufParseError metadataParseError) -> std::string_view {
+    switch (metadataParseError) {
+    case GgufParseError::FailedToReadMagicNumber:
+        return "Failed to read magic number";
+    case GgufParseError::InvalidMagicNumber:
+        return "Invalid magic number, expected: 0x46554747";
+    case GgufParseError::FailedToReadVersion:
+        return "Failed to read version";
+    case GgufParseError::UnsupportedGgufVersion:
+        return "Unsupported GGUF version, expected: 3";
+    case GgufParseError::FailedToReadTensorCount:
+        return "Failed to read tensor count";
+    case GgufParseError::TooManyTensors:
+        return "Too many tensors";
+    case GgufParseError::FailedToReadMetadataKvCount:
+        return "Failed to read metadata key-value count";
+    case GgufParseError::TooManyMetadata:
+        return "Too many metadata";
+    case GgufParseError::FailedToReadTensorName:
+        return "Failed to read tensor name";
+    case GgufParseError::FailedToReadDimensionCount:
+        return "Failed to read dimension count";
+    case GgufParseError::TooManyTensorDimensions:
+        return "Too many tensor dimensions";
+    case GgufParseError::FailedToReadTensorDimension:
+        return "Failed to read tensor dimension";
+    case GgufParseError::FailedToReadTensorType:
+        return "Failed to read tensor type";
+    case GgufParseError::FailedToReadTensorOffset:
+        return "Failed to read tensor offset";
+    case GgufParseError::FailedToReadMetadataKey:
+        return "Failed to read metadata key";
+    case GgufParseError::FailedToReadMetadataType:
+        return "Failed to read metadata type";
+    case GgufParseError::UnsupportedMetadataKey:
+        return "Unsupported metadata key";
+    }
+    return "Unknown error";
+}
+
+inline auto read_gguf_metadata(std::istream &stream)
+    -> std::expected<GgufMetadata, GgufParseError> {
     auto magic = gguf::read<std::uint32_t>(stream);
     if (!magic) {
-        std::println(stderr, "Failed to read magic number");
-        return std::nullopt;
+        return std::unexpected(GgufParseError::FailedToReadMagicNumber);
     }
 
     if (magic != 0x46554747) {
-        std::println(stderr, "Invalid magic number: {:08x}", *magic);
-        return std::nullopt;
+        return std::unexpected(GgufParseError::InvalidMagicNumber);
     }
 
     auto version = gguf::read<std::uint32_t>(stream);
     if (!version) {
-        std::println(stderr, "Failed to read version");
-        return std::nullopt;
+        return std::unexpected(GgufParseError::FailedToReadVersion);
     }
 
     if (*version != 3) {
-        std::println(stderr, "Unsupported GGUF version: {}", *version);
-        return std::nullopt;
+        return std::unexpected(GgufParseError::UnsupportedGgufVersion);
     }
 
     auto tensor_count = gguf::read<std::uint64_t>(stream);
     if (!tensor_count) {
-        std::println(stderr, "Failed to read tensor count");
-        return std::nullopt;
+        return std::unexpected(GgufParseError::FailedToReadTensorCount);
     }
 
     if (*tensor_count > kMaxTensorCount) {
-        std::println(stderr, "Too many tensors: {} > {}", *tensor_count, kMaxTensorCount);
-        return std::nullopt;
+        return std::unexpected(GgufParseError::TooManyTensors);
     }
 
     auto metadata_kv_count = gguf::read<std::uint64_t>(stream);
     if (!metadata_kv_count) {
-        std::println(stderr, "Failed to read metadata key-value count");
-        return std::nullopt;
+        return std::unexpected(GgufParseError::FailedToReadMetadataKvCount);
     }
 
     if (*metadata_kv_count > kMaxMetadataCount) {
-        std::println(stderr, "Too many metadatas: {} > {}", *metadata_kv_count, kMaxMetadataCount);
-        return std::nullopt;
+        return std::unexpected(GgufParseError::TooManyMetadata);
     }
 
     std::vector<gguf::GgufMetadataKV> metadata_kvs;
@@ -589,8 +638,7 @@ constexpr auto read_gguf_metadata(std::istream &stream) -> std::optional<GgufMet
     for (std::uint64_t i = 0; i < *metadata_kv_count; ++i) {
         auto metadata_kv = gguf::read_gguf_metadata_kv(stream);
         if (!metadata_kv) {
-            std::println(stderr, "Failed to read metadata key-value");
-            return std::nullopt;
+            return std::unexpected(metadata_kv.error());
         }
 
         metadata_kvs.push_back(std::move(*metadata_kv));
@@ -602,8 +650,7 @@ constexpr auto read_gguf_metadata(std::istream &stream) -> std::optional<GgufMet
     for (std::uint64_t i = 0; i < *tensor_count; ++i) {
         auto tensor_info = gguf::read_gguf_tensor_info(stream);
         if (!tensor_info) {
-            std::println(stderr, "Failed to read tensor info");
-            return std::nullopt;
+            return std::unexpected(tensor_info.error());
         }
 
         tensor_infos.push_back(std::move(*tensor_info));
