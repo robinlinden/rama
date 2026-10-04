@@ -19,6 +19,11 @@ build:linux --cxxopt=-std=c++2b
 build:windows --cxxopt=-std:c++23preview --features=-default_cpp_std
 build:windows --cxxopt='-utf-8'
 
+# Special build options
+# =========================================================
+
+build:libcxx --cxxopt=-stdlib=libc++ --linkopt=-stdlib=libc++
+
 # Fuzzing options
 # =========================================================
 
