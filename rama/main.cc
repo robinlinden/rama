@@ -25,15 +25,12 @@ constexpr auto split_once(std::string_view str, char sep)
     return {str, ""};
 }
 
-auto parse_merges(std::span<gguf::GgufValue const> gguf_merges) -> std::vector<ende::Merge> {
+auto parse_merges(std::span<std::string const> gguf_merges) -> std::vector<ende::Merge> {
     std::vector<ende::Merge> merges;
     merges.reserve(gguf_merges.size());
 
     for (std::size_t i = 0; i < gguf_merges.size(); ++i) {
-        auto const &gguf_merge = gguf_merges[i].v;
-        assert(std::holds_alternative<std::string>(gguf_merge));
-
-        auto [lhs, rhs] = split_once(std::get<std::string>(gguf_merge), ' ');
+        auto [lhs, rhs] = split_once(gguf_merges[i], ' ');
         merges.emplace_back(std::string{lhs}, std::string{rhs}, static_cast<std::uint32_t>(i));
     }
 
@@ -70,7 +67,8 @@ auto main(int argc, char **argv) -> int {
 
     for (auto const &metadata_kv : metadata->metadata_kv) {
         // Only print the first 128 characters of the value to avoid flooding the terminal.
-        std::println("* {}: {}", metadata_kv.key, to_string(metadata_kv.value).substr(0, 128));
+        std::println(
+            "* {}: {}", metadata_kv.key, gguf::to_string(metadata_kv.value).substr(0, 128));
     }
 
     std::println();
@@ -94,8 +92,8 @@ auto main(int argc, char **argv) -> int {
         return 1;
     }
 
-    assert(std::holds_alternative<std::string>(maybe_model->value.v));
-    auto const &model = std::get<std::string>(maybe_model->value.v);
+    assert(std::holds_alternative<std::string>(maybe_model->value));
+    auto const &model = std::get<std::string>(maybe_model->value);
     if (model != "gemma4") {
         std::println(stderr, "Only gemma4 models are supported right now");
         return 1;
@@ -112,8 +110,8 @@ auto main(int argc, char **argv) -> int {
 
     // TODO(robinlinden): If this exists, it's required to be array[string]. We
     // should probably enforce these things when parsing.
-    assert(std::holds_alternative<std::vector<gguf::GgufValue>>(maybe_merges->value.v));
-    auto const &raw_merges = std::get<std::vector<gguf::GgufValue>>(maybe_merges->value.v);
+    assert(std::holds_alternative<std::vector<std::string>>(maybe_merges->value));
+    auto const &raw_merges = std::get<std::vector<std::string>>(maybe_merges->value);
     auto merges = parse_merges(raw_merges);
 
     auto prompt_tokens = ende::into_byte_tokens(argv[2]);

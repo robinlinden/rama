@@ -127,14 +127,14 @@ auto make_gguf_header(
         write<std::uint64_t>(ss, kv.key.size());
         ss << kv.key;
 
-        if (auto const *vu32 = std::get_if<std::uint32_t>(&kv.value.v)) {
+        if (auto const *vu32 = std::get_if<std::uint32_t>(&kv.value)) {
             write<std::int32_t>(ss, 4);
             write<std::uint32_t>(ss, *vu32);
-        } else if (auto const *vb = std::get_if<bool>(&kv.value.v)) {
+        } else if (auto const *vb = std::get_if<bool>(&kv.value)) {
             write<std::int32_t>(ss, 7);
             write<std::int8_t>(ss, *vb ? 1 : 0);
         } else {
-            std::println(stderr, "Unhandled kv-type: {}", kv.value.v.index());
+            std::println(stderr, "Unhandled kv-type: {}", kv.value.index());
             std::exit(1);
         }
     }

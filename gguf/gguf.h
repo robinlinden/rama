@@ -5,7 +5,6 @@
 #ifndef RAMA_GGUF_GGUF_H_
 #define RAMA_GGUF_GGUF_H_
 
-#include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <cstring>
@@ -13,6 +12,7 @@
 #include <istream>
 #include <optional>
 #include <print>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <variant>
@@ -131,34 +131,68 @@ inline auto read<GgufType>(std::istream &stream) -> std::optional<GgufType> {
     return static_cast<GgufType>(*value);
 }
 
-struct GgufValue;
-struct GgufValue {
-    std::variant<std::uint32_t, std::int32_t, float, bool, std::string, std::vector<GgufValue>> v;
+using GgufValue = std::variant<
+    std::uint32_t,
+    std::int32_t,
+    float,
+    bool,
+    std::string,
+    std::vector<std::int32_t>,
+    std::vector<float>,
+    std::vector<bool>,
+    std::vector<std::string> //
+    >;
 
-    bool operator==(GgufValue const &) const = default;
+struct GgufStringifier {
+    std::string operator()(std::uint32_t v) const { return std::to_string(v); }
+    std::string operator()(std::int32_t v) const { return std::to_string(v); }
+    std::string operator()(float v) const { return std::to_string(v); }
+    std::string operator()(bool v) const { return std::to_string(v); }
+    std::string operator()(std::string const &v) const { return v; }
+
+    std::string operator()(auto const &v) const {
+        std::ostringstream os;
+        os << '[';
+
+        bool first = true;
+        for (auto const &value : v) {
+            if (std::exchange(first, false)) {
+                os << value;
+            } else {
+                os << ", " << value;
+            }
+        }
+
+        os << ']';
+
+        return std::move(os).str();
+    }
 };
 
 constexpr auto to_string(GgufValue const &value) -> std::string {
-    struct GgufStringifier {
-        std::string operator()(std::uint32_t v) const { return std::to_string(v); }
-        std::string operator()(std::int32_t v) const { return std::to_string(v); }
-        std::string operator()(float v) const { return std::to_string(v); }
-        std::string operator()(bool v) const { return std::to_string(v); }
-        std::string operator()(std::string const &v) const { return v; }
-        std::string operator()(std::vector<GgufValue> const &v) const {
-            return "[" +
-                   std::ranges::fold_left(
-                       v,
-                       std::string{},
-                       [](std::string acc, GgufValue const &value) {
-                           return acc.empty() ? to_string(value)
-                                              : std::move(acc) + ", " + to_string(value);
-                       }) +
-                   "]";
-        }
-    };
+    return std::visit(GgufStringifier{}, value);
+}
 
-    return std::visit(GgufStringifier{}, value.v);
+template<typename T>
+auto read_vector(std::istream &is) -> std::optional<std::vector<T>> {
+    auto array_length = read<std::uint64_t>(is);
+    if (!array_length || *array_length > kMaxArrayLength) {
+        return std::nullopt;
+    }
+
+    std::vector<T> values;
+    values.reserve(*array_length);
+
+    for (std::uint64_t i = 0; i < *array_length; ++i) {
+        auto value = read<T>(is);
+        if (!value) {
+            return std::nullopt;
+        }
+
+        values.push_back(*value);
+    }
+
+    return values;
 }
 
 inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optional<GgufValue> {
@@ -209,24 +243,44 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
             return std::nullopt;
         }
 
-        auto array_length = read<std::uint64_t>(stream);
-        if (!array_length || *array_length > kMaxArrayLength) {
-            return std::nullopt;
-        }
-
-        std::vector<GgufValue> values;
-        values.reserve(*array_length);
-
-        for (std::uint64_t i = 0; i < *array_length; ++i) {
-            auto value = read_gguf_value(stream, *array_type);
-            if (!value) {
+        if (array_type == GgufType::Int32) {
+            auto values = read_vector<std::int32_t>(stream);
+            if (!values) {
                 return std::nullopt;
             }
 
-            values.push_back(*value);
+            return GgufValue{std::move(*values)};
         }
 
-        return GgufValue{std::move(values)};
+        if (array_type == GgufType::Float32) {
+            auto values = read_vector<float>(stream);
+            if (!values) {
+                return std::nullopt;
+            }
+
+            return GgufValue{std::move(*values)};
+        }
+
+        if (array_type == GgufType::Bool) {
+            auto values = read_vector<bool>(stream);
+            if (!values) {
+                return std::nullopt;
+            }
+
+            return GgufValue{std::move(*values)};
+        }
+
+        if (array_type == GgufType::String) {
+            auto values = read_vector<std::string>(stream);
+            if (!values) {
+                return std::nullopt;
+            }
+
+            return GgufValue{std::move(*values)};
+        }
+
+        std::println(stderr, "Unsupported GGUF array type: {}", to_string(*array_type));
+        return std::nullopt;
     }
     default:
         std::println(stderr, "Unsupported GGUF type: {}", to_string(type));
