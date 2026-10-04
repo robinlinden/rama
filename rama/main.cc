@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
-#include <optional>
 #include <print>
 #include <span>
 #include <string>
