@@ -5,9 +5,11 @@
 #include "ende/ende.h"
 #include "gguf/gguf.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
+#include <format>
 #include <fstream>
 #include <print>
 #include <span>
@@ -25,13 +27,18 @@ constexpr auto split_once(std::string_view str, char sep)
     return {str, ""};
 }
 
-auto parse_merges(std::span<std::string const> gguf_merges) -> std::vector<ende::Merge> {
+auto parse_merges(ende::Vocabulary const &vocab, std::span<std::string const> gguf_merges)
+    -> std::vector<ende::Merge> {
     std::vector<ende::Merge> merges;
     merges.reserve(gguf_merges.size());
 
     for (std::size_t i = 0; i < gguf_merges.size(); ++i) {
         auto [lhs, rhs] = split_once(gguf_merges[i], ' ');
-        merges.emplace_back(std::string{lhs}, std::string{rhs}, static_cast<std::uint32_t>(i));
+        merges.emplace_back(
+            vocab.token_by_value(lhs),
+            vocab.token_by_value(rhs),
+            vocab.token_by_value(std::format("{}{}", lhs, rhs)),
+            static_cast<std::uint32_t>(i));
     }
 
     return merges;
@@ -124,15 +131,15 @@ auto main(int argc, char **argv) -> int {
         std::get<std::vector<std::string>>(std::move(maybe_tokens->value)));
 
     auto const &raw_merges = std::get<std::vector<std::string>>(maybe_merges->value);
-    auto merges = parse_merges(raw_merges);
+    auto merges = parse_merges(vocab, raw_merges);
 
-    auto prompt_tokens = ende::into_byte_tokens(argv[2]);
+    auto prompt_tokens = ende::into_byte_tokens(vocab, argv[2]);
     prompt_tokens = ende::apply_merges(std::move(prompt_tokens), merges);
 
     std::println("Merged tokens:");
     for (std::size_t i = 0; i < prompt_tokens.size(); ++i) {
         auto const &token = prompt_tokens[i];
-        std::println("{}: {}", i, token);
+        std::println("{}: {} ({})", i, token, vocab.token_by_id(token));
     }
 
     // TODO(robinlinden): String tokens -> actual numerical tokens from the metadata.

@@ -12,7 +12,6 @@
 #include <limits>
 #include <optional>
 #include <print>
-#include <ranges>
 #include <span>
 #include <string>
 #include <string_view>
@@ -22,9 +21,10 @@
 namespace ende {
 
 struct Merge {
-    std::string lhs;
-    std::string rhs;
-    std::int32_t rank{};
+    std::uint32_t lhs{};
+    std::uint32_t rhs{};
+    std::uint32_t merged{};
+    std::uint32_t rank{};
 };
 
 struct Vocabulary {
@@ -65,22 +65,24 @@ struct Vocabulary {
     }
 };
 
-constexpr auto into_byte_tokens(std::string_view text) -> std::vector<std::string> {
-    std::vector<std::string> tokens;
+constexpr auto into_byte_tokens(Vocabulary const &vocab, std::string_view text)
+    -> std::vector<std::uint32_t> {
+    std::vector<std::uint32_t> tokens;
     tokens.reserve(text.size());
     for (auto c : text) {
-        tokens.push_back(std::string{c});
+        tokens.push_back(vocab.token_by_value(c));
     }
 
     return tokens;
 }
 
 // TODO(robinlinden): This is the most naive implementation. Do something better.
-inline auto apply_merges(std::vector<std::string> tokens_to_merge, std::span<Merge const> merges)
-    -> std::vector<std::string> {
+inline auto apply_merges(std::vector<std::uint32_t> tokens_to_merge, std::span<Merge const> merges)
+    -> std::vector<std::uint32_t> {
     while (true) {
         std::optional<std::size_t> best_merge_index;
-        std::int32_t lowest_rank = std::numeric_limits<std::int32_t>::max();
+        std::optional<std::uint32_t> merged_token;
+        std::uint32_t lowest_rank = std::numeric_limits<std::uint32_t>::max();
 
         // Find the pair w/ the lowest rank, if any.
         for (std::size_t i = 0; i < tokens_to_merge.size() - 1; ++i) {
@@ -88,6 +90,7 @@ inline auto apply_merges(std::vector<std::string> tokens_to_merge, std::span<Mer
                 if (tokens_to_merge[i] == merge.lhs && tokens_to_merge[i + 1] == merge.rhs) {
                     if (merge.rank < lowest_rank) {
                         lowest_rank = merge.rank;
+                        merged_token = merge.merged;
                         best_merge_index = i;
                     }
                 }
@@ -105,7 +108,7 @@ inline auto apply_merges(std::vector<std::string> tokens_to_merge, std::span<Mer
             tokens_to_merge[*best_merge_index + 1]);
 
         // Perform the merge.
-        tokens_to_merge[*best_merge_index] += tokens_to_merge[*best_merge_index + 1];
+        tokens_to_merge[*best_merge_index] = *merged_token;
         tokens_to_merge.erase(tokens_to_merge.begin() + *best_merge_index + 1);
     }
 

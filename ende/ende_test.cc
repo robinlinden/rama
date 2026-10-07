@@ -34,12 +34,13 @@ int main() {
     });
 
     s.add_test("into_byte_tokens", [](etest::IActions &a) {
-        using Tokens = std::vector<std::string>;
-        a.expect_eq(ende::into_byte_tokens("hello"), Tokens{"h", "e", "l", "l", "o"});
+        using Tokens = std::vector<std::uint32_t>;
+        auto vocab = ende::Vocabulary::from_tokens({"h", "e", "l", "o", "\xCE", "\xBB"});
+        a.expect_eq(ende::into_byte_tokens(vocab, "hello"), Tokens{0, 1, 2, 2, 3});
 
         // UTF-8 characters are split into bytes.
         // U+03BB (GREEK SMALL LETTER LAMBDA).
-        a.expect_eq(ende::into_byte_tokens("\u03BB"), Tokens{"\xCE", "\xBB"});
+        a.expect_eq(ende::into_byte_tokens(vocab, "\u03BB"), Tokens{4, 5});
     });
 
     return s.run();
