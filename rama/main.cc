@@ -106,11 +106,23 @@ auto main(int argc, char **argv) -> int {
         return 1;
     }
 
+    auto maybe_tokens = std::ranges::find(
+        metadata->metadata_kv, "tokenizer.ggml.tokens", &gguf::GgufMetadataKV::key);
+    if (maybe_tokens == std::end(metadata->metadata_kv)) {
+        std::println(stderr, "Missing tokenizer.ggml.tokens metadata? :(");
+        return 1;
+    }
+
     std::println();
 
-    // TODO(robinlinden): If this exists, it's required to be array[string]. We
-    // should probably enforce these things when parsing.
+    // TODO(robinlinden): If these exist, they're required to be array[string].
+    // We should probably enforce these things when parsing.
     assert(std::holds_alternative<std::vector<std::string>>(maybe_merges->value));
+    assert(std::holds_alternative<std::vector<std::string>>(maybe_tokens->value));
+
+    auto vocab = ende::Vocabulary::from_tokens(
+        std::get<std::vector<std::string>>(std::move(maybe_tokens->value)));
+
     auto const &raw_merges = std::get<std::vector<std::string>>(maybe_merges->value);
     auto merges = parse_merges(raw_merges);
 
