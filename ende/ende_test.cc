@@ -12,8 +12,8 @@
 int main() {
     etest::Suite s{};
 
-    s.add_test("Vocabulary::from_tokens", [](etest::IActions &a) {
-        std::vector<std::string> tokens{"hi", "hello", "goodbye", "farewell"};
+    s.add_test("Vocabulary", [](etest::IActions &a) {
+        std::vector<std::string> tokens{"hi", "hello", "goodbye", "farewell", "?"};
         auto vocab = ende::Vocabulary::from_tokens(tokens);
         a.expect_eq(
             vocab,
@@ -24,8 +24,13 @@ int main() {
                     {"hello", 1},
                     {"goodbye", 2},
                     {"farewell", 3},
+                    {"?", 4},
                 },
             });
+
+        a.expect_eq(vocab.token_by_id(2), "goodbye");
+        a.expect_eq(vocab.token_by_value("goodbye"), 2);
+        a.expect_eq(vocab.token_by_value('?'), 4);
     });
 
     s.add_test("into_byte_tokens", [](etest::IActions &a) {

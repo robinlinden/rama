@@ -50,6 +50,19 @@ struct Vocabulary {
             .tokens_by_value{std::move(token_values), std::move(token_ids)},
         };
     }
+
+    constexpr auto token_by_value(char c) const -> std::uint32_t {
+        return tokens_by_value.at(std::string_view{&c, 1});
+    }
+
+    constexpr auto token_by_value(std::string_view s) const -> std::uint32_t {
+        return tokens_by_value.at(s);
+    }
+
+    constexpr auto token_by_id(std::uint32_t id) const -> std::string_view {
+        assert(id < tokens_by_id.size());
+        return tokens_by_id[id];
+    }
 };
 
 constexpr auto into_byte_tokens(std::string_view text) -> std::vector<std::string> {
