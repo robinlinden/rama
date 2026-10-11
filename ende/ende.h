@@ -28,13 +28,21 @@ struct Merge {
     bool operator==(Merge const &) const = default;
 };
 
+struct VocabOptions {
+    std::optional<std::uint32_t> unknown_token_id{};
+
+    bool operator==(VocabOptions const &) const = default;
+};
+
 struct Vocabulary {
     std::vector<std::string> tokens_by_id;
     std::flat_map<std::string_view, std::uint32_t> tokens_by_value;
+    VocabOptions opts;
 
     bool operator==(Vocabulary const &) const = default;
 
-    constexpr static auto from_tokens(std::vector<std::string> tokens) -> Vocabulary {
+    constexpr static auto
+    from_tokens(std::vector<std::string> tokens, VocabOptions const &opts = {}) -> Vocabulary {
         std::vector<std::uint32_t> token_ids;
         token_ids.reserve(tokens.size());
         std::vector<std::string_view> token_values;
@@ -49,11 +57,17 @@ struct Vocabulary {
         return Vocabulary{
             .tokens_by_id{std::move(tokens)},
             .tokens_by_value{std::move(token_values), std::move(token_ids)},
+            .opts{opts},
         };
     }
 
     constexpr auto token_by_value(char c) const -> std::uint32_t {
-        return tokens_by_value.at(std::string_view{&c, 1});
+        auto token = tokens_by_value.find(std::string_view{&c, 1});
+        if (token == tokens_by_value.end()) {
+            return opts.unknown_token_id.value();
+        }
+
+        return token->second;
     }
 
     constexpr auto token_by_value(std::string_view s) const -> std::uint32_t {

@@ -72,6 +72,10 @@ int main() {
         // UTF-8 characters are split into bytes.
         // U+03BB (GREEK SMALL LETTER LAMBDA).
         a.expect_eq(ende::into_byte_tokens(vocab, "\u03BB"), Tokens{4, 5});
+
+        vocab = ende::Vocabulary::from_tokens(
+            {"h", "e", "l", "o", "<unknown>"}, {.unknown_token_id = 4});
+        a.expect_eq(ende::into_byte_tokens(vocab, "hello!"), Tokens{0, 1, 2, 2, 3, 4});
     });
 
     return s.run();
