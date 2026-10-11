@@ -29,6 +29,20 @@ int main() {
             });
     });
 
+    s.add_test("Merge::apply", [](etest::IActions &a) {
+        std::vector<std::string> gguf_tokens{"h", "e", "he", "ll", "hell", "hello", "o", "l"};
+        auto vocab = ende::Vocabulary::from_tokens(gguf_tokens);
+
+        auto gguf_merges = std::vector<std::string>{"h e", "he ll", "hell o", "l l"};
+        auto merges = ende::parse_merges(vocab, gguf_merges);
+
+        // h e l l o
+        auto tokens = std::vector<std::uint32_t>{0, 1, 7, 7, 6};
+
+        auto merged = ende::apply_merges(tokens, merges);
+        a.expect_eq(merged, std::vector<std::uint32_t>{5});
+    });
+
     s.add_test("Vocabulary", [](etest::IActions &a) {
         std::vector<std::string> tokens{"hi", "hello", "goodbye", "farewell", "?"};
         auto vocab = ende::Vocabulary::from_tokens(tokens);
