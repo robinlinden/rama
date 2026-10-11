@@ -24,7 +24,6 @@ struct Merge {
     std::uint32_t lhs{};
     std::uint32_t rhs{};
     std::uint32_t merged{};
-    std::uint32_t rank{};
 
     bool operator==(Merge const &) const = default;
 };
@@ -86,8 +85,7 @@ constexpr auto parse_merges(Vocabulary const &vocab, std::span<std::string const
         merges.emplace_back(
             vocab.token_by_value(lhs),
             vocab.token_by_value(rhs),
-            vocab.token_by_value(std::format("{}{}", lhs, rhs)),
-            static_cast<std::uint32_t>(i));
+            vocab.token_by_value(std::format("{}{}", lhs, rhs)));
     }
 
     return merges;
@@ -112,12 +110,15 @@ inline auto apply_merges(std::vector<std::uint32_t> tokens_to_merge, std::span<M
         std::optional<std::uint32_t> merged_token;
         std::uint32_t lowest_rank = std::numeric_limits<std::uint32_t>::max();
 
+        assert(merges.size() < std::numeric_limits<std::uint32_t>::max());
+
         // Find the pair w/ the lowest rank, if any.
         for (std::size_t i = 0; i < tokens_to_merge.size() - 1; ++i) {
-            for (auto const &merge : merges) {
+            for (std::uint32_t merge_idx = 0; merge_idx < merges.size(); ++merge_idx) {
+                auto const &merge = merges[merge_idx];
                 if (tokens_to_merge[i] == merge.lhs && tokens_to_merge[i + 1] == merge.rhs) {
-                    if (merge.rank < lowest_rank) {
-                        lowest_rank = merge.rank;
+                    if (merge_idx < lowest_rank) {
+                        lowest_rank = merge_idx;
                         merged_token = merge.merged;
                         best_merge_index = i;
                     }

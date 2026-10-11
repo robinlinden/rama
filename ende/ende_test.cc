@@ -22,10 +22,10 @@ int main() {
         a.expect_eq(
             merges,
             std::vector<ende::Merge>{
-                {0, 1, 2, 0}, // h+e => he
-                {2, 3, 4, 1}, // he+ll => hell
-                {4, 6, 5, 2}, // hell+o => hello
-                {7, 7, 3, 3}, // l+l => ll
+                {0, 1, 2}, // h+e => he
+                {2, 3, 4}, // he+ll => hell
+                {4, 6, 5}, // hell+o => hello
+                {7, 7, 3}, // l+l => ll
             });
     });
 
