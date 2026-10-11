@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <cstdio>
 #include <format>
 #include <fstream>
@@ -89,6 +90,15 @@ auto main(int argc, char **argv) -> int {
         return 1;
     }
 
+    auto maybe_unknown_token_id = std::ranges::find(
+        metadata->metadata_kv, "tokenizer.ggml.unknown_token_id", &gguf::GgufMetadataKV::key);
+
+    auto opts = ende::VocabOptions{};
+    if (maybe_unknown_token_id != std::end(metadata->metadata_kv)) {
+        assert(std::holds_alternative<std::uint32_t>(maybe_unknown_token_id->value));
+        opts.unknown_token_id = std::get<std::uint32_t>(maybe_unknown_token_id->value);
+    }
+
     std::println();
 
     // TODO(robinlinden): If these exist, they're required to be array[string].
@@ -97,7 +107,7 @@ auto main(int argc, char **argv) -> int {
     assert(std::holds_alternative<std::vector<std::string>>(maybe_tokens->value));
 
     auto vocab = ende::Vocabulary::from_tokens(
-        std::get<std::vector<std::string>>(std::move(maybe_tokens->value)));
+        std::get<std::vector<std::string>>(std::move(maybe_tokens->value)), opts);
 
     auto const &raw_merges = std::get<std::vector<std::string>>(maybe_merges->value);
     auto merges = parse_merges(vocab, raw_merges);
