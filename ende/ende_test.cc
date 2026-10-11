@@ -12,6 +12,23 @@
 int main() {
     etest::Suite s{};
 
+    s.add_test("Merge::parse", [](etest::IActions &a) {
+        std::vector<std::string> gguf_tokens{"h", "e", "he", "ll", "hell", "hello", "o", "l"};
+        auto vocab = ende::Vocabulary::from_tokens(gguf_tokens);
+
+        auto gguf_merges = std::vector<std::string>{"h e", "he ll", "hell o", "l l"};
+        auto merges = ende::parse_merges(vocab, gguf_merges);
+
+        a.expect_eq(
+            merges,
+            std::vector<ende::Merge>{
+                {0, 1, 2, 0}, // h+e => he
+                {2, 3, 4, 1}, // he+ll => hell
+                {4, 6, 5, 2}, // hell+o => hello
+                {7, 7, 3, 3}, // l+l => ll
+            });
+    });
+
     s.add_test("Vocabulary", [](etest::IActions &a) {
         std::vector<std::string> tokens{"hi", "hello", "goodbye", "farewell", "?"};
         auto vocab = ende::Vocabulary::from_tokens(tokens);

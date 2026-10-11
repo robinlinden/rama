@@ -7,7 +7,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cstdint>
 #include <cstdio>
 #include <format>
 #include <fstream>
@@ -15,36 +14,6 @@
 #include <span>
 #include <string>
 #include <variant>
-
-namespace {
-
-constexpr auto split_once(std::string_view str, char sep)
-    -> std::pair<std::string_view, std::string_view> {
-    if (auto p = str.find(sep); p != std::string_view::npos) {
-        return {str.substr(0, p), str.substr(p + 1)};
-    }
-
-    return {str, ""};
-}
-
-auto parse_merges(ende::Vocabulary const &vocab, std::span<std::string const> gguf_merges)
-    -> std::vector<ende::Merge> {
-    std::vector<ende::Merge> merges;
-    merges.reserve(gguf_merges.size());
-
-    for (std::size_t i = 0; i < gguf_merges.size(); ++i) {
-        auto [lhs, rhs] = split_once(gguf_merges[i], ' ');
-        merges.emplace_back(
-            vocab.token_by_value(lhs),
-            vocab.token_by_value(rhs),
-            vocab.token_by_value(std::format("{}{}", lhs, rhs)),
-            static_cast<std::uint32_t>(i));
-    }
-
-    return merges;
-}
-
-} // namespace
 
 auto main(int argc, char **argv) -> int {
     if (argc < 2) {

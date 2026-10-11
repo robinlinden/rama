@@ -25,6 +25,8 @@ struct Merge {
     std::uint32_t rhs{};
     std::uint32_t merged{};
     std::uint32_t rank{};
+
+    bool operator==(Merge const &) const = default;
 };
 
 struct Vocabulary {
@@ -64,6 +66,32 @@ struct Vocabulary {
         return tokens_by_id[id];
     }
 };
+
+constexpr auto split_once(std::string_view str, char sep)
+    -> std::pair<std::string_view, std::string_view> {
+    if (auto p = str.find(sep); p != std::string_view::npos) {
+        return {str.substr(0, p), str.substr(p + 1)};
+    }
+
+    return {str, ""};
+}
+
+constexpr auto parse_merges(Vocabulary const &vocab, std::span<std::string const> gguf_merges)
+    -> std::vector<Merge> {
+    std::vector<Merge> merges;
+    merges.reserve(gguf_merges.size());
+
+    for (std::size_t i = 0; i < gguf_merges.size(); ++i) {
+        auto [lhs, rhs] = split_once(gguf_merges[i], ' ');
+        merges.emplace_back(
+            vocab.token_by_value(lhs),
+            vocab.token_by_value(rhs),
+            vocab.token_by_value(std::format("{}{}", lhs, rhs)),
+            static_cast<std::uint32_t>(i));
+    }
+
+    return merges;
+}
 
 constexpr auto into_byte_tokens(Vocabulary const &vocab, std::string_view text)
     -> std::vector<std::uint32_t> {
