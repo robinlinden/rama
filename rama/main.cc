@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "ende/ende.h"
+#include "ende/vocabulary.h"
 #include "gguf/gguf.h"
 
 #include <algorithm>

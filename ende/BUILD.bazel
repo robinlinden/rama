@@ -3,17 +3,18 @@ load("//bzl:copts.bzl", "RAMA_COPTS")
 
 cc_library(
     name = "ende",
-    hdrs = ["ende.h"],
+    hdrs = glob(["*.h"]),
     copts = RAMA_COPTS,
     visibility = ["//visibility:public"],
 )
 
-cc_test(
-    name = "ende_test",
-    srcs = ["ende_test.cc"],
+[cc_test(
+    name = src.removesuffix(".cc"),
+    size = "small",
+    srcs = [src],
     copts = RAMA_COPTS,
     deps = [
         ":ende",
         "@hastur//etest",
     ],
-)
+) for src in glob(["*_test.cc"])]
