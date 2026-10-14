@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "ende/ende.h"
+#include "ende/gemma4.h"
 #include "ende/vocabulary.h"
 #include "gguf/gguf.h"
 
@@ -111,14 +111,15 @@ auto main(int argc, char **argv) -> int {
         std::get<std::vector<std::string>>(std::move(maybe_tokens->value)), opts);
 
     auto const &raw_merges = std::get<std::vector<std::string>>(maybe_merges->value);
-    auto merges = parse_merges(vocab, raw_merges);
-
-    auto prompt_tokens = ende::into_byte_tokens(vocab, argv[2]);
-    prompt_tokens = ende::apply_merges(std::move(prompt_tokens), merges);
+    auto prompt_tokens = ende::gemma4::into_tokens(vocab, argv[2], raw_merges);
+    if (!prompt_tokens) {
+        std::println(stderr, "Things went wrong trying to tokenize the input.");
+        return 1;
+    }
 
     std::println("Merged tokens:");
-    for (std::size_t i = 0; i < prompt_tokens.size(); ++i) {
-        auto const &token = prompt_tokens[i];
+    for (std::size_t i = 0; i < prompt_tokens->size(); ++i) {
+        auto const &token = prompt_tokens->at(i);
         std::println("{}: {} ({})", i, token, vocab.token_by_id(token));
     }
 
