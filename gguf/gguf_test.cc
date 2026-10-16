@@ -7,7 +7,7 @@
 #include <etest/etest2.h>
 
 #include <bit>
-#include <cstdio>
+#include <cstdint>
 #include <cstdlib>
 #include <ostream>
 #include <print>
@@ -15,6 +15,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace {

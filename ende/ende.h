@@ -10,6 +10,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <format>
 #include <limits>
 #include <optional>
 #include <print>

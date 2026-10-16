@@ -12,10 +12,13 @@
 #include <cstdio>
 #include <format>
 #include <fstream>
+#include <ios>
 #include <print>
 #include <span>
 #include <string>
+#include <utility>
 #include <variant>
+#include <vector>
 
 auto main(int argc, char **argv) -> int {
     if (argc < 2) {

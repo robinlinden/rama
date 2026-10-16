@@ -4,8 +4,11 @@
 
 #include "ende/gemma4.h"
 
+#include "ende/vocabulary.h"
+
 #include <etest/etest2.h>
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

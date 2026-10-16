@@ -6,9 +6,9 @@
 
 #include <etest/etest2.h>
 
-#include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <ios>
 #include <print>
 
 int main(int argc, char **argv) {

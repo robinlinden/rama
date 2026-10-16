@@ -4,8 +4,11 @@
 
 #include "ende/ende.h"
 
+#include "ende/vocabulary.h"
+
 #include <etest/etest2.h>
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
