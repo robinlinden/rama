@@ -1,0 +1,8 @@
+---
+UseColor: true
+
+Checks: >
+  clang-analyzer-*,
+  misc-include-cleaner
+
+WarningsAsErrors: "*"

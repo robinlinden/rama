@@ -19,3 +19,19 @@ EOF""",
     strip_prefix = "hastur-%s" % HASTUR_VERSION,
     url = "https://github.com/robinlinden/hastur/archive/%s.tar.gz" % HASTUR_VERSION,
 )
+
+# Misc tools
+# =========================================================
+
+# The commit after ours, c4d35e0d0b838309358e57a2efed831780f85cd0, doesn't work,
+# and complains about ~every file, including the files in the standard library.
+# https://github.com/erenon/bazel_clang_tidy
+BAZEL_CLANG_TIDY_VERSION = "9e54bbb15d1939a9d030c52f3032886a0b278f98"
+
+bazel_dep(name = "bazel_clang_tidy", dev_dependency = True)  # MIT
+archive_override(
+    module_name = "bazel_clang_tidy",
+    integrity = "sha256-CIeoQ/Pnjs1o+hHzBTxvBKl7Q3vgm5iEgkXfCBkt9yo=",
+    strip_prefix = "bazel_clang_tidy-%s" % BAZEL_CLANG_TIDY_VERSION,
+    url = "https://github.com/erenon/bazel_clang_tidy/archive/%s.tar.gz" % BAZEL_CLANG_TIDY_VERSION,
+)

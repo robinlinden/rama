@@ -55,6 +55,19 @@ jobs:
       - run: find . -name "*.h" -o -name "*.cc" | xargs clang-format-22 -style=file -i
       - run: git diff --exit-code
 
+  clang-tidy:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo apt-get update && sudo apt-get install --no-install-recommends clang-tidy-22 libc++-22-dev
+      - run: echo "CC=clang-22" >>$GITHUB_ENV && echo "CXX=clang++-22" >>$GITHUB_ENV
+      - run: |
+          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-22 100
+          sudo update-alternatives --set clang-tidy /usr/bin/clang-tidy-22
+          update-alternatives --query clang-tidy
+          clang-tidy --version
+      - run: bazel build ... --config libcxx --config clang-tidy --keep_going
+
   buildifier:
     runs-on: ubuntu-slim
     steps:
