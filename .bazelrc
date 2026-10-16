@@ -16,6 +16,7 @@ test --test_verbose_timeout_warnings
 build --features=external_include_paths
 
 build:linux --cxxopt=-std=c++2b
+build:linux --cxxopt=-fno-exceptions
 build:windows --cxxopt=-std:c++23preview --features=-default_cpp_std
 build:windows --cxxopt='-utf-8'
 
