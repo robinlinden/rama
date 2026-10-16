@@ -101,6 +101,7 @@ inline auto apply_merges(std::vector<std::uint32_t> tokens_to_merge, std::span<M
             tokens_to_merge[*best_merge_index + 1]);
 
         // Perform the merge.
+        assert(merged_token.has_value());
         tokens_to_merge[*best_merge_index] = *merged_token;
         tokens_to_merge.erase(tokens_to_merge.begin() + *best_merge_index + 1);
     }

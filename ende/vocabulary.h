@@ -54,6 +54,7 @@ struct Vocabulary {
     constexpr auto token_by_value(char c) const -> std::uint32_t {
         auto token = tokens_by_value.find(std::string_view{&c, 1});
         if (token == tokens_by_value.end()) {
+            assert(opts.unknown_token_id.has_value());
             return opts.unknown_token_id.value();
         }
 

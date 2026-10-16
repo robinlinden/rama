@@ -2,7 +2,9 @@
 UseColor: true
 
 Checks: >
+  bugprone-*,
   clang-analyzer-*,
-  misc-include-cleaner
+  misc-include-cleaner,
+  -bugprone-narrowing-conversions
 
 WarningsAsErrors: "*"

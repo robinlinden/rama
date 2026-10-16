@@ -82,24 +82,24 @@ constexpr auto apply_merges(std::vector<std::string> symbols, std::span<Merge co
 constexpr auto into_symbols(std::string_view text) -> std::vector<std::string> {
     static constexpr std::string_view kEscapedSpace = "\xE2\x96\x81";
 
-    static constexpr auto kUtf8CodePointLength = [](char first) {
-        if ((first & 0b1110'0000) == 0b1100'0000) {
+    static constexpr auto kUtf8CodePointLength = [](unsigned char first) {
+        if ((first & 0b1110'0000U) == 0b1100'0000) {
             return 2;
         }
 
-        if ((first & 0b1111'0000) == 0b1110'0000) {
+        if ((first & 0b1111'0000U) == 0b1110'0000) {
             return 3;
         }
 
-        if ((first & 0b1111'1000) == 0b1111'0000) {
+        if ((first & 0b1111'1000U) == 0b1111'0000) {
             return 4;
         }
 
         return 1;
     };
 
-    static constexpr auto kIsContinuationByte = [](char ch) {
-        return (ch & 0b1100'0000) == 0b1000'0000;
+    static constexpr auto kIsContinuationByte = [](unsigned char ch) {
+        return (ch & 0b1100'0000U) == 0b1000'0000;
     };
 
     std::string normalized;
