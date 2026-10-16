@@ -339,6 +339,8 @@ constexpr auto read_gguf_metadata_kv(std::istream &stream)
     return GgufMetadataKV{*key, *value};
 }
 
+// This matches some ggml document.
+// NOLINTBEGIN(readability-identifier-naming)
 enum class GgmlType : std::uint8_t {
     F32,
     F16,
@@ -373,6 +375,7 @@ enum class GgmlType : std::uint8_t {
     TQ2_0,
     MXFP4,
 };
+// NOLINTEND(readability-identifier-naming)
 
 template<>
 inline auto read<GgmlType>(std::istream &stream) -> std::optional<GgmlType> {
@@ -608,8 +611,8 @@ struct GgufMetadata {
     std::vector<GgufTensorInfo> tensor_infos;
 };
 
-constexpr auto to_string(GgufParseError metadataParseError) -> std::string_view {
-    switch (metadataParseError) {
+constexpr auto to_string(GgufParseError e) -> std::string_view {
+    switch (e) {
     case GgufParseError::FailedToReadMagicNumber:
         return "Failed to read magic number";
     case GgufParseError::InvalidMagicNumber:
