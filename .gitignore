@@ -4,3 +4,6 @@
 # clangd
 /.cache/
 /compile_commands.json
+
+# Local settings
+.bazelrc.local
