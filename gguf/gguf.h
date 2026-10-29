@@ -21,6 +21,25 @@
 
 namespace gguf {
 
+class IReader {
+public:
+    virtual ~IReader() = default;
+    constexpr virtual auto read(char *out_ptr, std::size_t len) -> bool = 0;
+};
+
+class StreamReader : public IReader {
+public:
+    explicit StreamReader(std::istream &stream) : stream_{stream} {}
+    ~StreamReader() override = default;
+
+    auto read(char *out_ptr, std::size_t len) -> bool override {
+        return stream_.read(out_ptr, len).good();
+    }
+
+private:
+    std::istream &stream_;
+};
+
 // TODO(robinlinden): These were picked at random. Pick values that make sense.
 static constexpr auto kMaxArrayLength = 64 * 1024 * 1024;
 static constexpr auto kMaxDimensionCount = kMaxArrayLength;
@@ -30,9 +49,9 @@ static constexpr auto kMaxStringLength = 64 * 1024 * 1024;
 
 // https://github.com/ggml-org/ggml/blob/456172ec733a135778adcd32d00e576a58232e45/docs/gguf.md
 template<typename T>
-auto read(std::istream &stream) -> std::optional<T> {
+constexpr auto read(IReader &reader) -> std::optional<T> {
     T value;
-    if (!stream.read(reinterpret_cast<char *>(&value), sizeof(value))) {
+    if (!reader.read(reinterpret_cast<char *>(&value), sizeof(value))) {
         return std::nullopt;
     }
 
@@ -44,9 +63,15 @@ auto read(std::istream &stream) -> std::optional<T> {
     return value;
 }
 
+template<typename T>
+constexpr auto read(std::istream &is) -> std::optional<T> {
+    auto reader = StreamReader{is};
+    return read<T>(reader);
+}
+
 template<>
-inline auto read<float>(std::istream &stream) -> std::optional<float> {
-    auto value = read<std::uint32_t>(stream);
+constexpr auto read<float>(IReader &reader) -> std::optional<float> {
+    auto value = read<std::uint32_t>(reader);
     if (!value) {
         return std::nullopt;
     }
@@ -57,15 +82,15 @@ inline auto read<float>(std::istream &stream) -> std::optional<float> {
 }
 
 template<>
-inline auto read<std::string>(std::istream &stream) -> std::optional<std::string> {
-    auto length = read<std::uint64_t>(stream);
+constexpr auto read<std::string>(IReader &reader) -> std::optional<std::string> {
+    auto length = read<std::uint64_t>(reader);
     if (!length || *length >= kMaxStringLength) {
         return std::nullopt;
     }
 
     std::string value;
     value.resize(*length);
-    if (!stream.read(value.data(), *length)) {
+    if (!reader.read(value.data(), *length)) {
         return std::nullopt;
     }
 
@@ -122,8 +147,8 @@ constexpr auto to_string(GgufType type) -> std::string_view {
 }
 
 template<>
-inline auto read<GgufType>(std::istream &stream) -> std::optional<GgufType> {
-    auto value = read<std::int32_t>(stream);
+constexpr auto read<GgufType>(IReader &reader) -> std::optional<GgufType> {
+    auto value = read<std::int32_t>(reader);
     if (!value || *value < static_cast<std::int32_t>(GgufType::Uint8) ||
         *value > static_cast<std::int32_t>(GgufType::Float64)) {
         return std::nullopt;
@@ -175,7 +200,7 @@ constexpr auto to_string(GgufValue const &value) -> std::string {
 }
 
 template<typename T>
-auto read_vector(std::istream &is) -> std::optional<std::vector<T>> {
+auto read_vector(IReader &is) -> std::optional<std::vector<T>> {
     auto array_length = read<std::uint64_t>(is);
     if (!array_length || *array_length > kMaxArrayLength) {
         return std::nullopt;
@@ -196,10 +221,10 @@ auto read_vector(std::istream &is) -> std::optional<std::vector<T>> {
     return values;
 }
 
-inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optional<GgufValue> {
+constexpr auto read_gguf_value(IReader &reader, GgufType type) -> std::optional<GgufValue> {
     switch (type) {
     case GgufType::Uint32: {
-        auto value = read<std::uint32_t>(stream);
+        auto value = read<std::uint32_t>(reader);
         if (!value) {
             return std::nullopt;
         }
@@ -207,7 +232,7 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
         return GgufValue{*value};
     }
     case GgufType::Int32: {
-        auto value = read<std::int32_t>(stream);
+        auto value = read<std::int32_t>(reader);
         if (!value) {
             return std::nullopt;
         }
@@ -215,7 +240,7 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
         return GgufValue{*value};
     }
     case GgufType::Float32: {
-        auto value = read<float>(stream);
+        auto value = read<float>(reader);
         if (!value) {
             return std::nullopt;
         }
@@ -223,7 +248,7 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
         return GgufValue{*value};
     }
     case GgufType::Bool: {
-        auto value = read<std::int8_t>(stream);
+        auto value = read<std::int8_t>(reader);
         if (!value) {
             return std::nullopt;
         }
@@ -231,7 +256,7 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
         return GgufValue{bool{*value != 0}};
     }
     case GgufType::String: {
-        auto value = read<std::string>(stream);
+        auto value = read<std::string>(reader);
         if (!value) {
             return std::nullopt;
         }
@@ -239,13 +264,13 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
         return GgufValue{*value};
     }
     case GgufType::Array: {
-        auto array_type = read<GgufType>(stream);
+        auto array_type = read<GgufType>(reader);
         if (!array_type) {
             return std::nullopt;
         }
 
         if (array_type == GgufType::Int32) {
-            auto values = read_vector<std::int32_t>(stream);
+            auto values = read_vector<std::int32_t>(reader);
             if (!values) {
                 return std::nullopt;
             }
@@ -254,7 +279,7 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
         }
 
         if (array_type == GgufType::Float32) {
-            auto values = read_vector<float>(stream);
+            auto values = read_vector<float>(reader);
             if (!values) {
                 return std::nullopt;
             }
@@ -263,7 +288,7 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
         }
 
         if (array_type == GgufType::Bool) {
-            auto values = read_vector<bool>(stream);
+            auto values = read_vector<bool>(reader);
             if (!values) {
                 return std::nullopt;
             }
@@ -272,7 +297,7 @@ inline auto read_gguf_value(std::istream &stream, GgufType type) -> std::optiona
         }
 
         if (array_type == GgufType::String) {
-            auto values = read_vector<std::string>(stream);
+            auto values = read_vector<std::string>(reader);
             if (!values) {
                 return std::nullopt;
             }
@@ -319,7 +344,7 @@ enum class GgufParseError {
     UnsupportedMetadataKey,
 };
 
-constexpr auto read_gguf_metadata_kv(std::istream &stream)
+constexpr auto read_gguf_metadata_kv(IReader &stream)
     -> std::expected<GgufMetadataKV, GgufParseError> {
     auto key = gguf::read<std::string>(stream);
     if (!key) {
@@ -378,7 +403,7 @@ enum class GgmlType : std::uint8_t {
 // NOLINTEND(readability-identifier-naming)
 
 template<>
-inline auto read<GgmlType>(std::istream &stream) -> std::optional<GgmlType> {
+constexpr auto read<GgmlType>(IReader &stream) -> std::optional<GgmlType> {
     auto value = read<std::uint32_t>(stream);
     if (!value) {
         return std::nullopt;
@@ -559,7 +584,7 @@ struct GgufTensorInfo {
     bool operator==(GgufTensorInfo const &) const = default;
 };
 
-constexpr auto read_gguf_tensor_info(std::istream &stream)
+constexpr auto read_gguf_tensor_info(IReader &stream)
     -> std::expected<GgufTensorInfo, GgufParseError> {
     auto tensor_name = gguf::read<std::string>(stream);
     if (!tensor_name) {
@@ -651,9 +676,8 @@ constexpr auto to_string(GgufParseError e) -> std::string_view {
     return "Unknown error";
 }
 
-inline auto read_gguf_metadata(std::istream &stream)
-    -> std::expected<GgufMetadata, GgufParseError> {
-    auto magic = gguf::read<std::uint32_t>(stream);
+constexpr auto read_gguf_metadata(IReader &reader) -> std::expected<GgufMetadata, GgufParseError> {
+    auto magic = gguf::read<std::uint32_t>(reader);
     if (!magic) {
         return std::unexpected(GgufParseError::FailedToReadMagicNumber);
     }
@@ -662,7 +686,7 @@ inline auto read_gguf_metadata(std::istream &stream)
         return std::unexpected(GgufParseError::InvalidMagicNumber);
     }
 
-    auto version = gguf::read<std::uint32_t>(stream);
+    auto version = gguf::read<std::uint32_t>(reader);
     if (!version) {
         return std::unexpected(GgufParseError::FailedToReadVersion);
     }
@@ -671,7 +695,7 @@ inline auto read_gguf_metadata(std::istream &stream)
         return std::unexpected(GgufParseError::UnsupportedGgufVersion);
     }
 
-    auto tensor_count = gguf::read<std::uint64_t>(stream);
+    auto tensor_count = gguf::read<std::uint64_t>(reader);
     if (!tensor_count) {
         return std::unexpected(GgufParseError::FailedToReadTensorCount);
     }
@@ -680,7 +704,7 @@ inline auto read_gguf_metadata(std::istream &stream)
         return std::unexpected(GgufParseError::TooManyTensors);
     }
 
-    auto metadata_kv_count = gguf::read<std::uint64_t>(stream);
+    auto metadata_kv_count = gguf::read<std::uint64_t>(reader);
     if (!metadata_kv_count) {
         return std::unexpected(GgufParseError::FailedToReadMetadataKvCount);
     }
@@ -693,7 +717,7 @@ inline auto read_gguf_metadata(std::istream &stream)
     metadata_kvs.reserve(*metadata_kv_count);
 
     for (std::uint64_t i = 0; i < *metadata_kv_count; ++i) {
-        auto metadata_kv = gguf::read_gguf_metadata_kv(stream);
+        auto metadata_kv = gguf::read_gguf_metadata_kv(reader);
         if (!metadata_kv) {
             return std::unexpected(metadata_kv.error());
         }
@@ -705,7 +729,7 @@ inline auto read_gguf_metadata(std::istream &stream)
     tensor_infos.reserve(*tensor_count);
 
     for (std::uint64_t i = 0; i < *tensor_count; ++i) {
-        auto tensor_info = gguf::read_gguf_tensor_info(stream);
+        auto tensor_info = gguf::read_gguf_tensor_info(reader);
         if (!tensor_info) {
             return std::unexpected(tensor_info.error());
         }
@@ -714,6 +738,11 @@ inline auto read_gguf_metadata(std::istream &stream)
     }
 
     return GgufMetadata{*magic, *version, std::move(metadata_kvs), std::move(tensor_infos)};
+}
+
+constexpr auto read_gguf_metadata(std::istream &is) -> std::expected<GgufMetadata, GgufParseError> {
+    auto reader = StreamReader{is};
+    return read_gguf_metadata(reader);
 }
 
 } // namespace gguf
